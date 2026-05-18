@@ -1,0 +1,25 @@
+config:
+  trinity:environment: dev
+  trinity:region: eastus
+  trinity:kubernetesVersion: "1.33"
+  trinity:keyVaultName: trinity-dev-mg-kv
+  trinity:secretsDemoValue:
+    secure: AAABAHtpsvnKDfHNgzPmorQNMdyvkbiyqgYKSwtFAjkKAUoED0prMBq8t+jB0Mzu
+  trinity:grafanaCloudRemoteWriteUrl:
+    secure: AAABALLdKhDFlT64u6p5kwjDcejCuiM3BHYJFnhL5CtoxnZZd8t+IsD5YNi7J/U8xsFvm4szPyzNyOJRUjdpmNOThKKFa0a/mq647hhGOJ7RNhVqVXWkiNpT0dVkgaYzTsqVQOHW2Z8=
+  trinity:grafanaCloudPrometheusUsername:
+    secure: AAABAGlt3lLvjFjF8+dHkH+M71BGD7ozgWexExsaZDtOu/KST7/1
+  trinity:grafanaCloudPrometheusPassword:
+    secure: AAABANK+JqtizIS+kZtYlng03whwOyHJJPjTSSG+9PsyGKmVLkqjNlKAgDJlpi4LCqS+9Hwo9AZ/Puk5rsH4edzzMh3nnBzn8M+OhHNjXHoKviikJOVY6BB8jjncDqskHJkhy+rPCi4WFE2LwAhcJT85LeGVfnml6h56gW4PcneWyEm/9WP1rWFUtb4UQB1TMzpWbJoB6AYa0J4GAZM4jOHaY/rEqQQBDopllqophX8SnGdmCQJwd8YOZgiNwbgf
+  trinity:grafanaCloudLogsUrl:
+    secure: AAABAJxahTNRNwTZlh1fXrtnh56B8M2HcNRRsA+pq2uS3RmwdHrWSPvpNnfXHsUUP2ei/wu87l0id9vskzLzo38k2fnBug03DB4yxN28oXBjIw==
+  trinity:grafanaCloudLogsUsername:
+    secure: AAABAOucD6oz3TR44SY4QDEqFcDLZO79VGzPrr4SZIhcEgqK3+Es
+  trinity:grafanaCloudLogsPassword:
+    secure: AAABANfzVE1bEnTEMe1hgSazCJeGCwzhxVCv6ET+kUE7WB472DZyUIjvM/5s/H6AmLdsA+r82x1RT8wxcVOpO6Y9OeLGnNS9S9XzQVZ5N2WS4Mvd5viBr66ngS5YsmQtXrDf/E1HPb5Pj6EMS3Chw49C9qnQLrTaXkFkz2RWr0gPNh2wAw8Sk0iFFf4OVGpt7h+0t0kKWSZXJUgWPG0fpTRscvCVfIZLjJ7HeiGeZwXxrkzedlrDTupBzkMAPLkveaEmZVbbLR0=
+  trinity:grafanaCloudTempoOtlpHttpEndpoint:
+    secure: AAABAOG36CiRcyG/846x6LUnNXYFSH7e55CBU2xEFbJ51/ZKn2FHwF+xgxejCZShpiFCqOjuZf/ZaW1zYJtj8G0uaoGVPx2I8ADIfSqLhSsnAI9JaXIgSDs=
+  trinity:grafanaCloudTempoUsername:
+    secure: AAABAA0hhnyj6fkV9cDglm2IW621PJmProlryhpnsLX5zE0abHdm
+  trinity:grafanaCloudTempoPassword:
+    secure: AAABAHhYxEitYzV3KWNd1VXqOXtUTY1+1DnUfmtelL/iZRZqOrj41kCQXKwgBYFrESRnSMRKckyxdsZox3/ZjmPWfUf2ThJPS/5NHW01Ar4+OJkA5g3MD2zdDIzZyricF7Y6f0idzIhaLURT6YknjCOwo2bZcJkknW1uSb4qdlyk9GMljMpg6NqVgqqYcDIzjMcbAAtJki44+JX7xi/+1NmPdV62xpKhGO3hGEuVRhmNQLjoYpv/1wHTu3rKbitDjmQBc3+iJfo=

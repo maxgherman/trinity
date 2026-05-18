@@ -1,0 +1,39 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: trinity-promtail
+  labels:
+    app.kubernetes.io/name: promtail
+    app.kubernetes.io/part-of: trinity
+    app.kubernetes.io/component: logs
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+      - nodes/proxy
+      - pods
+      - services
+      - endpoints
+      - namespaces
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: trinity-promtail
+  labels:
+    app.kubernetes.io/name: promtail
+    app.kubernetes.io/part-of: trinity
+    app.kubernetes.io/component: logs
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: trinity-promtail
+subjects:
+  - kind: ServiceAccount
+    name: promtail
+    namespace: observability

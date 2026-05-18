@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/part-of: trinity
+    app.kubernetes.io/component: traces
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: otel-collector
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: otel-collector
+        app.kubernetes.io/part-of: trinity
+        app.kubernetes.io/component: traces
+    spec:
+      containers:
+        - name: otel-collector
+          image: otel/opentelemetry-collector-contrib:0.114.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - --config=/etc/otelcol/collector.yaml
+          env:
+            - name: GRAFANA_CLOUD_TEMPO_OTLP_HTTP_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-cloud-traces
+                  key: endpoint
+            - name: GRAFANA_CLOUD_TEMPO_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-cloud-traces
+                  key: username
+            - name: GRAFANA_CLOUD_TEMPO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-cloud-traces
+                  key: password
+          ports:
+            - name: zipkin
+              containerPort: 9411
+            - name: healthz
+              containerPort: 13133
+          readinessProbe:
+            httpGet:
+              path: /
+              port: healthz
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: otel-collector-config
+              mountPath: /etc/otelcol/collector.yaml
+              subPath: collector.yaml
+              readOnly: true
+      volumes:
+        - name: otel-collector-config
+          configMap:
+            name: otel-collector-config

@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/part-of: trinity
+    app.kubernetes.io/component: traces
+data:
+  collector.yaml: |
+    extensions:
+      basicauth/grafana_cloud:
+        client_auth:
+          username: ${env:GRAFANA_CLOUD_TEMPO_USERNAME}
+          password: ${env:GRAFANA_CLOUD_TEMPO_PASSWORD}
+      health_check:
+        endpoint: 0.0.0.0:13133
+    receivers:
+      zipkin:
+        endpoint: 0.0.0.0:9411
+    processors:
+      batch: {}
+    exporters:
+      otlphttp/grafana_cloud:
+        endpoint: ${env:GRAFANA_CLOUD_TEMPO_OTLP_HTTP_ENDPOINT}
+        auth:
+          authenticator: basicauth/grafana_cloud
+    service:
+      extensions:
+        - basicauth/grafana_cloud
+        - health_check
+      pipelines:
+        traces:
+          receivers:
+            - zipkin
+          processors:
+            - batch
+          exporters:
+            - otlphttp/grafana_cloud

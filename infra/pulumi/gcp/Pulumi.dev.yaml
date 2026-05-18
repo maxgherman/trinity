@@ -1,0 +1,25 @@
+config:
+  trinity:environment: dev
+  trinity:region: us-central1
+  trinity:kubernetesVersion: "1.33"
+  gcp:project: trinity-k8s
+  trinity:secretsDemoValue:
+    secure: AAABANE3FzsqjFe72eE6mIymsOf/4xLJUp+JAkU9izs1E0HJgrb+FUk4Em6fxA==
+  trinity:grafanaCloudRemoteWriteUrl:
+    secure: AAABAFWVIFIJ6fGBROeB/iY8umfKxP2i4fks4/OlPs99Vc9S3T7QWK7hHNs4eBfRtqNK2v8m0bjUmWksxhjK6lFl0+vOIn5nDsxIuF3JSifZ3SVNkEUOaP5hl+D2jvWoBEVA67josqk=
+  trinity:grafanaCloudPrometheusUsername:
+    secure: AAABAPxFFwEUdoHoR6NOWKJyUa9YbcNuzgwZK74jKrUlAvoA6cnw
+  trinity:grafanaCloudPrometheusPassword:
+    secure: AAABAG1/qER4fMD0jy2GES5aF2vmgN4zSVyfbn54U6NoPaxHeMxrmGpzh4nSm4tlHfjlBP0yF+Egf0my+clJWU80Se3KKYAM1KOopR7Z+XXg754Gy8mougJIPxDLddhaXgtG6WPz/lkoiu47bSq6WOPwiSIK1TGfG9Cippam8ayrQATZJNNYvPaiCmJvfBWizrVFWLyBWxSRsUeYQmK1X4lILtFIhjqnmxfTkzxPDuojMTw7e94drp2YZu15oXkU
+  trinity:grafanaCloudLogsUrl:
+    secure: AAABAF+1LKBr/RndnaQ1YemWJZhYIGs7lKvLiBJkwUKjpa38nxEpNYm7dOpclrFZzHfCemsBtbcJ5vIA/v/kpUBGl+ouGDD1iLH1qKlX/uUXhQ==
+  trinity:grafanaCloudLogsUsername:
+    secure: AAABADKPmSKHQE6OC2BY1L2BB/vqdNDyULAo0frhi/gYMv4Cucnd
+  trinity:grafanaCloudLogsPassword:
+    secure: AAABABVDEHsHUNEYdqbBTb24oCOiBMji5q0BmTsUrm+ZbL7Ejf2s4flzP8JzM+BUCAD/l76El9SWzE2D2Pa7Trtn5Z9pKpBSEEToMzlKs7JKPoLspt0W5lKeDkLaxyGqzN10aCZ9gC5a2AapuHJjKRLuMGDNt1i7AxRNvMWkcBx3jxvhjnjm+EtefjvFmJN9p9A5ISe6BXxEshdEd6qQbeeuWFUBdZ+N8XX4hZzlDiwBNvaR8QysYBcgfvUk0oL3vaEZVKiUJno=
+  trinity:grafanaCloudTempoOtlpHttpEndpoint:
+    secure: AAABAJINrbkiueYfMMrSC+NoeD9BKLBiRjsDPdjjGKMS7+/L8gOz8verLEEUQzTSb2ZyNJDgZ/Kn6u/D2IYkWBdGPATCEBGX4vOpjStOZFhUs5J1S1QHIKQ=
+  trinity:grafanaCloudTempoUsername:
+    secure: AAABAAEZeX9cFxqIt24kesZ0HjIOfK1l/D4d7cOMnMSlyye8lqtF
+  trinity:grafanaCloudTempoPassword:
+    secure: AAABANO82pxKiTPqniRTRt0fFfBqKFKnbJNZj9ZRNk5gE47GBWkBfEq+epZpXm7tTtF4wi/U337Rtgyq4PUDwUx32Y14E3UyuHOSINrTFrv22ZPRVBuim/7qHIj02CHg2vyO2hsLV7hZsA4JE8pryPleNsNCV4VLlHnsTrTLzh4a+gZxkGo3zTDVS7TALE/Y9OK2dURJJWq0XMZQcYFuNNq6epdMhWeMXeBycoW2RV2fBGl4rOZE6TxBOxv1ar9glgZt9j9upPY=

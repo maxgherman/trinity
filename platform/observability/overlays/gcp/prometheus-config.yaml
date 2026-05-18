@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/part-of: trinity
+    app.kubernetes.io/component: metrics
+    trinity.io/cloud: gcp
+data:
+  prometheus.yml.template: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cloud: gcp
+        cluster: trinity-dev-gcp
+        platform: trinity
+    remote_write:
+      - url: __GRAFANA_CLOUD_REMOTE_WRITE_URL__
+        basic_auth:
+          username_file: /etc/grafana-cloud/username
+          password_file: /etc/grafana-cloud/password
+    scrape_configs:
+      - job_name: prometheus
+        static_configs:
+          - targets:
+              - localhost:9090
+      - job_name: mandelbrot
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+              - mandelbrot.mandelbrot.svc.cluster.local:80
+            labels:
+              service: mandelbrot

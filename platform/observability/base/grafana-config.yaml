@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-provisioning
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/part-of: trinity
+    app.kubernetes.io/component: dashboards
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus.observability.svc.cluster.local:9090
+        isDefault: true
+      - name: Loki
+        uid: Loki
+        type: loki
+        access: proxy
+        url: http://loki.observability.svc.cluster.local:3100
+        jsonData:
+          derivedFields:
+            - datasourceUid: Jaeger
+              matcherRegex: '"traceId":"([a-f0-9]{16,32})"'
+              name: TraceID
+              url: '$${__value.raw}'
+      - name: Jaeger
+        uid: Jaeger
+        type: jaeger
+        access: proxy
+        url: http://jaeger.observability.svc.cluster.local:16686
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: Trinity
+        orgId: 1
+        folder: Trinity
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 30
+        options:
+          path: /var/lib/grafana/dashboards
