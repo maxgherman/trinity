@@ -1,0 +1,25 @@
+config:
+  trinity:environment: dev
+  trinity:region: us-east-1
+  trinity:kubernetesVersion: "1.33"
+  trinity:secretNameSuffix: mg
+  trinity:secretsDemoValue:
+    secure: AAABABNQPOkJVhVhDEdRAQBB4qQlukAvBU8gduOFiOrSI7QhoFZHJyAqjCk+ew==
+  trinity:grafanaCloudRemoteWriteUrl:
+    secure: AAABAPQRD8Ctv69sFfTEoUf+R+gyE/B1sbCu1R8NZo2HEvZC8kl0dQgNgRd7unrtjxbe/NsEHoeyIBlACRTiFrx6uSRWnnuJTi0ynbJTFSrRiPSo18H0vmbQNoADB8t2uNp129rEFe4=
+  trinity:grafanaCloudPrometheusUsername:
+    secure: AAABAPm2zBU44q5aLesp1xcocW7bEIZL7JulxBsVo/33mi1PQthQ
+  trinity:grafanaCloudPrometheusPassword:
+    secure: AAABAGu75UY/K00d76T8epTxrb+SLTe0qcKAD/mMXY69JWXF31q+Pen6CZIN6VhimOT/oo6lxHRUGtNW/PBqsYmgGZ4IJ2vfw0Q4zyvu++f+uEGrHMDTT+Q3HQmIqTLjfXCmxdqCI74Ci1UQUB5ZQMaitRJWqmbCT62krxBd5IMFEFS/3dcy4q1aSSNw50Xlhzg17dWGc6WmfBiKsNiX6+r/8VEUQ3cm6Vhrz6ojQgP2NR7zvnFs317vj1xvOcbh
+  trinity:grafanaCloudLogsUrl:
+    secure: AAABAMxXDQWYz6Bp7ZSCvE0w0hiE1aRFvF1Dj3bIQZltEvQMLd+vp7OdcMakDF+Wcr3hpFtA8yYF45eaWR1MEpia1WnhxIOzFNeK7gL1QD+zsQ==
+  trinity:grafanaCloudLogsUsername:
+    secure: AAABAHYE21YgUlQebh9j4Bgi1YYRgmSMLauXtyiBNT5l2fJ1KivG
+  trinity:grafanaCloudLogsPassword:
+    secure: AAABABl3nnPeeIbEpM7KuvIV73FLBjIxXZxEsE9fhPZLgiiBGZM2yW/+oMt4I7pwD16YMYzoNGan6uXPz1HXkr2hPvlP5XsxXvFl8rasJZ69Rv8F29XLBZ6sqr/63JFsaORNAqHF3B1w4Goq7qeiM9ctM4r5LMa9//sxWg9Ruv6sA8tZBPm7KKU7jo1GFp9d8Me9QKPgO7sXbd7MpfbXTRzLgIFDuOh6IoFxnS3um00i3I9LLcUs6DXoYQvetrXmKS1LVPMWF/o=
+  trinity:grafanaCloudTempoOtlpHttpEndpoint:
+    secure: AAABANj1Le3VE2+zwdNxHtNqGmCm2hIljKmB0NU59XWBy0Yjz2jy+l9LxwkAkPFWxayGgHouAP4/QIenOBTpZm+3P579zEHMVCuYZ5o8txceJSpCnWD3wjY=
+  trinity:grafanaCloudTempoUsername:
+    secure: AAABAJ1KemF7VEBadMRqXSwmknxyhZKkBFd6KOk6DjWJRf8samup
+  trinity:grafanaCloudTempoPassword:
+    secure: AAABAObtlnZsdm3zpEEuZ45/cyjQAeFdujqTMgc6bAvfu4ccszXqmX1BYrwBrWS/36RLxXpXsVZ87k3bbISX5IgUxafbY5aKeJum3bZ6m4R/UHK7dlj06/UOXbCNC4s42DqbYvFTJzLH6Mpf8AyfFwxQbgw4HAB+3NUX7DRrgfgp8cXspqfaXGPVmJ9Qnnz1m56aoiuKOFL1jbRRoUordmUw63cgqfvRvCh1f2CiErfI/Zmzwg596QUf8zBwmvR8GH692ewLOc8=

@@ -1,0 +1,281 @@
+name: Mandelbrot Rollout
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Rollout operation to run.
+        required: true
+        default: status
+        type: choice
+        options:
+          - status
+          - sync
+          - promote
+          - promote-full
+          - abort
+          - undo
+          - restart
+      cloud:
+        description: Cloud rollout to operate on.
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - aws
+          - gcp
+          - azure
+      to_revision:
+        description: Optional Rollout revision for undo.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: mandelbrot-rollout-${{ inputs.cloud }}
+  cancel-in-progress: false
+
+jobs:
+  rollout:
+    name: ${{ inputs.operation }} ${{ inputs.cloud }}
+    runs-on: ubuntu-latest
+    environment:
+      name: infra-deploy-approval
+
+    env:
+      TRINITY_ENVIRONMENT: dev
+      AWS_REGION: us-east-1
+      AWS_CLUSTER_NAME: trinity-dev-aws-cluster
+      GCP_PROJECT: trinity-k8s
+      GCP_REGION: us-central1
+      GCP_CLUSTER_NAME: trinity-dev-gcp-cluster
+      AZURE_RESOURCE_GROUP: trinity-dev-azure-rg
+      AZURE_CLUSTER_NAME: trinity-dev-azure-cluster
+      ARGO_ROLLOUTS_VERSION: v1.9.0
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.33.0
+
+      - name: Configure AWS credentials
+        if: inputs.cloud == 'all' || inputs.cloud == 'aws'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          role-session-name: trinity-mandelbrot-rollout-${{ github.run_id }}
+
+      - name: Configure GCP credentials
+        if: inputs.cloud == 'all' || inputs.cloud == 'gcp'
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.GCP_PROJECT }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud SDK
+        if: inputs.cloud == 'all' || inputs.cloud == 'gcp'
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Configure Azure credentials
+        if: inputs.cloud == 'all' || inputs.cloud == 'azure'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install Argo Rollouts kubectl plugin
+        run: |
+          mkdir -p "${RUNNER_TEMP}/bin"
+          curl -fsSL \
+            "https://github.com/argoproj/argo-rollouts/releases/download/${ARGO_ROLLOUTS_VERSION}/kubectl-argo-rollouts-linux-amd64" \
+            -o "${RUNNER_TEMP}/bin/kubectl-argo-rollouts"
+          chmod +x "${RUNNER_TEMP}/bin/kubectl-argo-rollouts"
+          echo "${RUNNER_TEMP}/bin" >>"${GITHUB_PATH}"
+
+      - name: Run rollout operation
+        env:
+          OPERATION: ${{ inputs.operation }}
+          CLOUD: ${{ inputs.cloud }}
+          TO_REVISION: ${{ inputs.to_revision }}
+        run: |
+          set -euo pipefail
+
+          clouds=("${CLOUD}")
+          if [ "${CLOUD}" = "all" ]; then
+            clouds=(aws gcp azure)
+          fi
+
+          configure_context() {
+            local cloud="$1"
+
+            case "${cloud}" in
+              aws)
+                aws eks update-kubeconfig \
+                  --name "${AWS_CLUSTER_NAME}" \
+                  --region "${AWS_REGION}" \
+                  --alias trinity-aws
+                echo trinity-aws
+                ;;
+              gcp)
+                gcloud container clusters get-credentials "${GCP_CLUSTER_NAME}" \
+                  --region "${GCP_REGION}" \
+                  --project "${GCP_PROJECT}"
+                kubectl config current-context
+                ;;
+              azure)
+                az aks get-credentials \
+                  --resource-group "${AZURE_RESOURCE_GROUP}" \
+                  --name "${AZURE_CLUSTER_NAME}" \
+                  --overwrite-existing
+                kubectl config current-context
+                ;;
+              *)
+                echo "Unsupported cloud: ${cloud}" >&2
+                return 1
+                ;;
+            esac
+          }
+
+          sync_mandelbrot() {
+            local context="$1"
+            local cloud="$2"
+
+            kubectl --context "${context}" -n argocd patch application "trinity-mandelbrot-${cloud}" \
+              --type merge \
+              -p '{"operation":{"sync":{"syncStrategy":{"hook":{}}}}}'
+          }
+
+          sync_root() {
+            local context="$1"
+            local cloud="$2"
+            local deadline_seconds=600
+            local started
+
+            kubectl --context "${context}" -n argocd patch application "trinity-${TRINITY_ENVIRONMENT}-${cloud}-root" \
+              --type merge \
+              -p '{"operation":{"sync":{"syncStrategy":{"hook":{}}}}}' || true
+
+            started="$(date +%s)"
+            while [ "$(( $(date +%s) - started ))" -lt "${deadline_seconds}" ]; do
+              if kubectl --context "${context}" get crd rollouts.argoproj.io >/dev/null 2>&1; then
+                kubectl --context "${context}" wait crd/rollouts.argoproj.io \
+                  --for=condition=Established \
+                  --timeout=30s
+                return 0
+              fi
+
+              echo "Waiting for Argo Rollouts CRD in ${cloud}..."
+              sleep 10
+            done
+
+            echo "Argo Rollouts CRD was not established within ${deadline_seconds} seconds." >&2
+            return 1
+          }
+
+          wait_for_rollout() {
+            local context="$1"
+
+            kubectl argo rollouts --context "${context}" status mandelbrot \
+              --namespace mandelbrot \
+              --watch \
+              --timeout 10m
+          }
+
+          wait_for_paused_or_healthy() {
+            local context="$1"
+            local deadline_seconds=600
+            local started
+            local phase
+            local current_step
+
+            started="$(date +%s)"
+            while [ "$(( $(date +%s) - started ))" -lt "${deadline_seconds}" ]; do
+              phase="$(kubectl --context "${context}" -n mandelbrot get rollout mandelbrot \
+                -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+              current_step="$(kubectl --context "${context}" -n mandelbrot get rollout mandelbrot \
+                -o jsonpath='{.status.currentStepIndex}' 2>/dev/null || true)"
+              echo "Rollout phase: ${phase:-unknown}; current step: ${current_step:-unknown}"
+
+              if [ "${phase}" = "Healthy" ] || [ "${phase}" = "Paused" ]; then
+                kubectl argo rollouts --context "${context}" get rollout mandelbrot \
+                  --namespace mandelbrot
+                return 0
+              fi
+
+              sleep 10
+            done
+
+            kubectl argo rollouts --context "${context}" get rollout mandelbrot \
+              --namespace mandelbrot || true
+            echo "Rollout did not become Paused or Healthy within ${deadline_seconds} seconds." >&2
+            return 1
+          }
+
+          for cloud in "${clouds[@]}"; do
+            echo "::group::${OPERATION} ${cloud}"
+            context="$(configure_context "${cloud}" | tail -n 1)"
+
+            case "${OPERATION}" in
+              status)
+                kubectl argo rollouts --context "${context}" get rollout mandelbrot \
+                  --namespace mandelbrot
+                ;;
+              sync)
+                sync_root "${context}" "${cloud}"
+                sync_mandelbrot "${context}" "${cloud}"
+                wait_for_paused_or_healthy "${context}"
+                ;;
+              promote)
+                kubectl argo rollouts --context "${context}" promote mandelbrot \
+                  --namespace mandelbrot
+                wait_for_rollout "${context}"
+                ;;
+              promote-full)
+                kubectl argo rollouts --context "${context}" promote mandelbrot \
+                  --namespace mandelbrot \
+                  --full
+                wait_for_rollout "${context}"
+                ;;
+              abort)
+                kubectl argo rollouts --context "${context}" abort mandelbrot \
+                  --namespace mandelbrot
+                kubectl argo rollouts --context "${context}" get rollout mandelbrot \
+                  --namespace mandelbrot
+                ;;
+              undo)
+                if [ -n "${TO_REVISION}" ]; then
+                  kubectl argo rollouts --context "${context}" undo mandelbrot \
+                    --namespace mandelbrot \
+                    --to-revision "${TO_REVISION}"
+                else
+                  kubectl argo rollouts --context "${context}" undo mandelbrot \
+                    --namespace mandelbrot
+                fi
+                wait_for_paused_or_healthy "${context}"
+                ;;
+              restart)
+                kubectl argo rollouts --context "${context}" restart mandelbrot \
+                  --namespace mandelbrot
+                wait_for_rollout "${context}"
+                ;;
+              *)
+                echo "Unsupported operation: ${OPERATION}" >&2
+                exit 1
+                ;;
+            esac
+
+            echo "::endgroup::"
+          done

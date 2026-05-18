@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-and-preview:
+    name: Check and Preview ${{ matrix.cloud }}
+    runs-on: ubuntu-latest
+    environment:
+      name: ci-pr-approval
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cloud: aws
+            stack: maxgherman/trinity-aws/dev
+            workdir: infra/pulumi/aws
+          - cloud: gcp
+            stack: maxgherman/trinity-gcp/dev
+            workdir: infra/pulumi/gcp
+          - cloud: azure
+            stack: maxgherman/trinity-azure/dev
+            workdir: infra/pulumi/azure
+          - cloud: traffic
+            stack: maxgherman/trinity-traffic/dev
+            workdir: infra/pulumi/traffic
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.33.0
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npm run check
+
+      - name: Manifest check
+        run: npm run check:manifests
+
+      - name: Render application overlays
+        run: |
+          kubectl kustomize apps/hello/overlays/aws >/tmp/hello-aws.yaml
+          kubectl kustomize apps/hello/overlays/gcp >/tmp/hello-gcp.yaml
+          kubectl kustomize apps/hello/overlays/azure >/tmp/hello-azure.yaml
+          kubectl kustomize apps/mandelbrot/overlays/aws >/tmp/mandelbrot-aws.yaml
+          kubectl kustomize apps/mandelbrot/overlays/gcp >/tmp/mandelbrot-gcp.yaml
+          kubectl kustomize apps/mandelbrot/overlays/azure >/tmp/mandelbrot-azure.yaml
+          kubectl kustomize platform/secrets-demo/overlays/aws >/tmp/secrets-demo-aws.yaml
+          kubectl kustomize platform/secrets-demo/overlays/gcp >/tmp/secrets-demo-gcp.yaml
+          kubectl kustomize platform/secrets-demo/overlays/azure >/tmp/secrets-demo-azure.yaml
+          kubectl kustomize platform/observability/overlays/aws >/tmp/observability-aws.yaml
+          kubectl kustomize platform/observability/overlays/gcp >/tmp/observability-gcp.yaml
+          kubectl kustomize platform/observability/overlays/azure >/tmp/observability-azure.yaml
+          kubectl kustomize platform/policy/overlays/aws >/tmp/policy-aws.yaml
+          kubectl kustomize platform/policy/overlays/gcp >/tmp/policy-gcp.yaml
+          kubectl kustomize platform/policy/overlays/azure >/tmp/policy-azure.yaml
+
+      - name: Render Argo CD roots
+        run: |
+          kubectl kustomize platform/argocd/clusters/aws >/tmp/argocd-aws.yaml
+          kubectl kustomize platform/argocd/clusters/gcp >/tmp/argocd-gcp.yaml
+          kubectl kustomize platform/argocd/clusters/azure >/tmp/argocd-azure.yaml
+
+      - name: Configure AWS credentials
+        if: matrix.cloud == 'aws' || matrix.cloud == 'traffic'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-region: us-east-1
+          role-to-assume: ${{ vars.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          role-session-name: trinity-pulumi-preview-${{ github.run_id }}
+
+      - name: Configure GCP credentials
+        if: matrix.cloud == 'gcp' || matrix.cloud == 'traffic'
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: trinity-k8s
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud SDK
+        if: matrix.cloud == 'gcp' || matrix.cloud == 'traffic'
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Configure Azure credentials
+        if: matrix.cloud == 'azure' || matrix.cloud == 'traffic'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Pulumi preview
+        uses: pulumi/actions@v6
+        with:
+          command: preview
+          stack-name: ${{ matrix.stack }}
+          work-dir: ${{ matrix.workdir }}
+          upsert: true
+          comment-on-pr: ${{ github.event_name == 'pull_request' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          AWS_CLUSTER_ADMIN_PRINCIPAL_ARN: ${{ vars.AWS_CLUSTER_ADMIN_PRINCIPAL_ARN }}

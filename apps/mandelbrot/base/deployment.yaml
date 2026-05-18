@@ -1,0 +1,90 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: mandelbrot
+  namespace: mandelbrot
+  labels:
+    app.kubernetes.io/name: mandelbrot
+    app.kubernetes.io/part-of: trinity
+spec:
+  replicas: 2
+  strategy:
+    canary:
+      steps:
+        - setWeight: 50
+        - pause: {}
+        - setWeight: 100
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mandelbrot
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mandelbrot
+        app.kubernetes.io/part-of: trinity
+    spec:
+      containers:
+        - name: mandelbrot
+          image: node:22-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - node
+            - /app/server.js
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: CLOUD
+              value: local
+            - name: REGION
+              value: local
+            - name: STAGE_ROUTE
+              value: aws,gcp,azure
+            - name: STAGE_URL_CONFIG_DIR
+              value: /config/stage-urls
+            - name: FAIL_READY
+              value: "false"
+            - name: ERROR_RATE
+              value: "0"
+            - name: MANDELBROT_RELEASE
+              value: continuous
+            - name: OTEL_SERVICE_NAME
+              value: mandelbrot
+            - name: ZIPKIN_ENDPOINTS
+              value: http://jaeger.observability.svc.cluster.local:9411/api/v2/spans,http://otel-collector.observability.svc.cluster.local:9411/api/v2/spans
+            - name: TRACE_SAMPLE_RATE
+              value: "1"
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 750m
+              memory: 384Mi
+          volumeMounts:
+            - name: app-source
+              mountPath: /app
+              readOnly: true
+            - name: stage-urls
+              mountPath: /config/stage-urls
+              readOnly: true
+      volumes:
+        - name: app-source
+          configMap:
+            name: mandelbrot-source
+        - name: stage-urls
+          configMap:
+            name: mandelbrot-stage-urls
+            optional: true

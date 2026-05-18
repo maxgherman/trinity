@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mandelbrot</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8f3;
+      --panel: #ffffff;
+      --ink: #17201d;
+      --muted: #62706a;
+      --line: #d9ded6;
+      --accent: #0b7a75;
+      --accent-2: #b54708;
+      --error: #b42318;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    main {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    }
+    aside {
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      padding: 24px;
+      min-width: 0;
+    }
+    section {
+      padding: 24px;
+      min-width: 0;
+    }
+    h1 {
+      margin: 0 0 4px;
+      font-size: 24px;
+      line-height: 1.15;
+    }
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    form {
+      margin-top: 24px;
+      display: grid;
+      gap: 14px;
+    }
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 650;
+      min-width: 0;
+    }
+    input, select, button {
+      width: 100%;
+      min-width: 0;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font: inherit;
+      background: #fff;
+      color: var(--ink);
+    }
+    button {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: white;
+      font-weight: 750;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.7;
+      cursor: wait;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 12px;
+    }
+    .meta {
+      margin-top: 22px;
+      display: grid;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .meta div {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 8px;
+    }
+    .canvas-wrap {
+      width: 100%;
+      background: #111827;
+      border: 1px solid #111827;
+      border-radius: 8px;
+      overflow: hidden;
+      aspect-ratio: 16 / 10;
+      display: grid;
+      place-items: center;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+    .stages {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .stage {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      min-height: 122px;
+    }
+    .stage strong {
+      display: block;
+      font-size: 15px;
+      margin-bottom: 8px;
+    }
+    .stage dl {
+      margin: 0;
+      display: grid;
+      gap: 5px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .stage div {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .error {
+      color: var(--error);
+      font-weight: 700;
+    }
+    .summary {
+      margin: 0 0 16px;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .summary strong {
+      color: var(--ink);
+    }
+    @media (max-width: 860px) {
+      main { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); }
+      .stages { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <aside>
+      <h1>Mandelbrot</h1>
+      <p>Continuously render a moving view by asking each cloud cluster to compute a different horizontal tile.</p>
+      <form id="render-form">
+        <div class="grid">
+          <label>Width <input name="width" type="number" min="64" max="900" value="480"></label>
+          <label>Height <input name="height" type="number" min="64" max="700" value="300"></label>
+        </div>
+        <label>Iterations <input name="maxIterations" type="number" min="25" max="1200" value="220"></label>
+        <div class="grid">
+          <label>X Min <input name="xMin" type="number" step="0.01" value="-2.1"></label>
+          <label>X Max <input name="xMax" type="number" step="0.01" value="0.8"></label>
+        </div>
+        <div class="grid">
+          <label>Y Min <input name="yMin" type="number" step="0.01" value="-1.1"></label>
+          <label>Y Max <input name="yMax" type="number" step="0.01" value="1.1"></label>
+        </div>
+        <label>Route Mode
+          <select name="routeMode">
+            <option value="fixed">AWS, GCP, Azure</option>
+            <option value="start-local">Start in this cluster</option>
+          </select>
+        </label>
+        <label>Failure Mode
+          <select name="failureMode">
+            <option value="strict">Strict</option>
+            <option value="degraded">Degraded</option>
+          </select>
+        </label>
+        <button id="render-button" type="submit">Start continuous render</button>
+      </form>
+      <div class="meta">
+        <div><span>Cloud</span><strong id="cloud"></strong></div>
+        <div><span>Region</span><strong id="region"></strong></div>
+        <div><span>Release</span><strong id="release"></strong></div>
+        <div><span>Pod</span><strong id="pod"></strong></div>
+      </div>
+    </aside>
+    <section>
+      <div class="summary">
+        <span>Status: <strong id="status">idle</strong></span>
+        <span>Job: <strong id="job">none</strong></span>
+        <span>Frame: <strong id="frame">0</strong></span>
+        <span>Duration: <strong id="duration">0 ms</strong></span>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="canvas" width="480" height="300"></canvas>
+      </div>
+      <div id="stages" class="stages"></div>
+    </section>
+  </main>
+  <script>
+    const form = document.querySelector("#render-form");
+    const button = document.querySelector("#render-button");
+    const canvas = document.querySelector("#canvas");
+    const ctx = canvas.getContext("2d");
+    const stagesEl = document.querySelector("#stages");
+    let running = false;
+    let frame = 0;
+    let runToken = 0;
+    let nextRenderTimer;
+
+    async function loadMeta() {
+      const response = await fetch("/api/meta");
+      const meta = await response.json();
+      document.querySelector("#cloud").textContent = meta.cloud;
+      document.querySelector("#region").textContent = meta.region;
+      document.querySelector("#release").textContent = meta.release;
+      document.querySelector("#pod").textContent = meta.pod;
+    }
+
+    function drawTiles(result) {
+      canvas.width = result.params.width;
+      canvas.height = result.params.height;
+      ctx.fillStyle = "#111827";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (const tile of result.tiles) {
+        const binary = atob(tile.pixels);
+        const bytes = new Uint8ClampedArray(binary.length);
+        for (let index = 0; index < binary.length; index += 1) {
+          bytes[index] = binary.charCodeAt(index);
+        }
+        const image = new ImageData(bytes, tile.width, tile.yEnd - tile.yStart);
+        ctx.putImageData(image, 0, tile.yStart);
+      }
+    }
+
+    function renderStages(stages) {
+      stagesEl.innerHTML = "";
+      for (const stage of stages) {
+        const el = document.createElement("article");
+        el.className = "stage";
+        const requestedCloud = stage.requestedCloud || stage.cloud;
+        const renderedCloud = stage.cloud || "none";
+        const fallback = stage.status === "ok" && requestedCloud !== renderedCloud;
+        const body = stage.status === "ok"
+          ? '<dl>' +
+              '<div><dt>Rendered by</dt><dd>' + renderedCloud.toUpperCase() + (fallback ? ' fallback' : '') + '</dd></div>' +
+              '<div><dt>Region</dt><dd>' + stage.region + '</dd></div>' +
+              '<div><dt>Rows</dt><dd>' + stage.yStart + "-" + stage.yEnd + '</dd></div>' +
+              '<div><dt>Duration</dt><dd>' + stage.durationMs + ' ms</dd></div>' +
+              '<div><dt>Pixels/sec</dt><dd>' + stage.pixelsPerSecond.toLocaleString() + '</dd></div>' +
+            '</dl>'
+          : '<p class="error">' + stage.error + '</p>';
+        el.innerHTML = '<strong>' + requestedCloud.toUpperCase() + '</strong>' + body;
+        stagesEl.appendChild(el);
+      }
+    }
+
+    function animatedParams(data, frameNumber) {
+      const width = Number(data.get("width"));
+      const height = Number(data.get("height"));
+      const xMin = Number(data.get("xMin"));
+      const xMax = Number(data.get("xMax"));
+      const yMin = Number(data.get("yMin"));
+      const yMax = Number(data.get("yMax"));
+      const baseWidth = xMax - xMin;
+      const baseHeight = yMax - yMin;
+      const centerX = (xMin + xMax) / 2;
+      const centerY = (yMin + yMax) / 2;
+      const cycle = frameNumber % 54;
+      const zoom = Math.pow(0.945, cycle);
+      const driftX = Math.sin(frameNumber * 0.19) * baseWidth * 0.08;
+      const driftY = Math.cos(frameNumber * 0.13) * baseHeight * 0.08;
+      const viewWidth = baseWidth * zoom;
+      const viewHeight = baseHeight * zoom;
+      const nextCenterX = centerX + driftX;
+      const nextCenterY = centerY + driftY;
+
+      return {
+        width,
+        height,
+        maxIterations: Number(data.get("maxIterations")),
+        xMin: nextCenterX - viewWidth / 2,
+        xMax: nextCenterX + viewWidth / 2,
+        yMin: nextCenterY - viewHeight / 2,
+        yMax: nextCenterY + viewHeight / 2,
+      };
+    }
+
+    async function renderFrame(token) {
+      if (token !== runToken) {
+        return;
+      }
+
+      const data = new FormData(form);
+      document.querySelector("#status").textContent = "rendering";
+
+      try {
+        const response = await fetch("/api/render", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            routeMode: data.get("routeMode"),
+            failureMode: data.get("failureMode"),
+            params: animatedParams(data, frame),
+          }),
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || "Render failed.");
+        }
+        if (token !== runToken) {
+          return;
+        }
+
+        drawTiles(result);
+        renderStages(result.stages);
+        document.querySelector("#status").textContent = result.status;
+        document.querySelector("#job").textContent = result.id;
+        document.querySelector("#frame").textContent = String(frame + 1);
+        document.querySelector("#duration").textContent = result.durationMs + " ms";
+        frame += 1;
+      } catch (error) {
+        document.querySelector("#status").textContent = error.message;
+        running = false;
+        button.textContent = "Start continuous render";
+        return;
+      }
+
+      if (running) {
+        nextRenderTimer = window.setTimeout(() => renderFrame(token), 350);
+      }
+    }
+
+    function startContinuousRender() {
+      running = true;
+      frame = 0;
+      runToken += 1;
+      button.textContent = "Stop continuous render";
+      renderFrame(runToken);
+    }
+
+    function stopContinuousRender() {
+      running = false;
+      runToken += 1;
+      window.clearTimeout(nextRenderTimer);
+      button.textContent = "Start continuous render";
+      document.querySelector("#status").textContent = "stopped";
+    }
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (running) {
+        stopContinuousRender();
+        return;
+      }
+
+      startContinuousRender();
+    });
+
+    loadMeta();
+  </script>
+</body>
+</html>

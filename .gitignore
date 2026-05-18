@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.pulumi/
+.npm-cache/
+
+*.log
+kubeconfig*
+gke_gcloud_auth_plugin_cache
+gha-creds-*.json
+
+.env
+.env.*
