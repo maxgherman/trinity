@@ -1,0 +1,28 @@
+{
+  "name": "the-trinity",
+  "private": true,
+  "scripts": {
+    "check": "tsc --noEmit",
+    "preview:aws": "pulumi -C infra/pulumi/aws preview",
+    "preview:gcp": "pulumi -C infra/pulumi/gcp preview",
+    "preview:azure": "pulumi -C infra/pulumi/azure preview",
+    "up:aws": "pulumi -C infra/pulumi/aws up",
+    "up:gcp": "pulumi -C infra/pulumi/gcp up",
+    "up:azure": "pulumi -C infra/pulumi/azure up",
+    "destroy:aws": "pulumi -C infra/pulumi/aws destroy",
+    "destroy:gcp": "pulumi -C infra/pulumi/gcp destroy",
+    "destroy:azure": "pulumi -C infra/pulumi/azure destroy"
+  },
+  "dependencies": {
+    "@pulumi/aws": "7.27.0",
+    "@pulumi/azure-native": "3.17.0",
+    "@pulumi/eks": "4.2.0",
+    "@pulumi/gcp": "9.21.0",
+    "@pulumi/kubernetes": "4.30.0",
+    "@pulumi/pulumi": "^3.232.0"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.0",
+    "typescript": "6.0.3"
+  }
+}

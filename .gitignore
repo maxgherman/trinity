@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.pulumi/
+.npm-cache/
+
+*.log
+kubeconfig.*.yaml
+gke_gcloud_auth_plugin_cache
+
+.env
+.env.*
