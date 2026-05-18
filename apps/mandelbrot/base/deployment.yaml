@@ -47,7 +47,7 @@ spec:
             - name: ERROR_RATE
               value: "0"
             - name: MANDELBROT_RELEASE
-              value: continuous
+              value: faster-cycles
             - name: OTEL_SERVICE_NAME
               value: mandelbrot
             - name: ZIPKIN_ENDPOINTS
