@@ -1,0 +1,308 @@
+name: Pulumi Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/pulumi-deploy.yml"
+      - "infra/pulumi/aws/**"
+      - "infra/pulumi/gcp/**"
+      - "infra/pulumi/azure/**"
+      - "infra/pulumi/traffic/**"
+      - "infra/pulumi/components/**"
+      - "apps/**"
+      - "platform/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Pulumi operation to run.
+        required: true
+        default: up
+        type: choice
+        options:
+          - up
+          - destroy
+      cloud:
+        description: Cloud stack to operate on.
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - aws
+          - gcp
+          - azure
+          - traffic
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: pulumi-deploy
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Plan deployment matrix
+    runs-on: ubuntu-latest
+    outputs:
+      command: ${{ steps.matrix.outputs.command }}
+      cloud: ${{ steps.matrix.outputs.cloud }}
+      cluster_matrix: ${{ steps.matrix.outputs.cluster_matrix }}
+
+    steps:
+      - name: Select stacks
+        id: matrix
+        run: |
+          command="${{ inputs.operation }}"
+          cloud="${{ inputs.cloud }}"
+
+          if [ -z "${command}" ]; then
+            command="up"
+          fi
+
+          if [ -z "${cloud}" ]; then
+            cloud="all"
+          fi
+
+          case "${cloud}" in
+            aws)
+              cluster_matrix='[{"cloud":"aws","stack":"maxgherman/trinity-aws/dev","workdir":"infra/pulumi/aws"}]'
+              ;;
+            gcp)
+              cluster_matrix='[{"cloud":"gcp","stack":"maxgherman/trinity-gcp/dev","workdir":"infra/pulumi/gcp"}]'
+              ;;
+            azure)
+              cluster_matrix='[{"cloud":"azure","stack":"maxgherman/trinity-azure/dev","workdir":"infra/pulumi/azure"}]'
+              ;;
+            traffic)
+              cluster_matrix='[]'
+              ;;
+            all)
+              cluster_matrix='[{"cloud":"aws","stack":"maxgherman/trinity-aws/dev","workdir":"infra/pulumi/aws"},{"cloud":"gcp","stack":"maxgherman/trinity-gcp/dev","workdir":"infra/pulumi/gcp"},{"cloud":"azure","stack":"maxgherman/trinity-azure/dev","workdir":"infra/pulumi/azure"}]'
+              ;;
+          esac
+
+          echo "command=${command}" >>"${GITHUB_OUTPUT}"
+          echo "cloud=${cloud}" >>"${GITHUB_OUTPUT}"
+          echo "cluster_matrix=${cluster_matrix}" >>"${GITHUB_OUTPUT}"
+
+  destroy-traffic:
+    name: Pulumi destroy traffic
+    needs: plan
+    if: needs.plan.outputs.command == 'destroy' && (needs.plan.outputs.cloud == 'all' || needs.plan.outputs.cloud == 'traffic')
+    runs-on: ubuntu-latest
+    environment:
+      name: infra-deploy-approval
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npm run check
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-region: us-east-1
+          role-to-assume: ${{ vars.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          role-session-name: trinity-pulumi-destroy-traffic-${{ github.run_id }}
+
+      - name: Configure GCP credentials
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: trinity-k8s
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Configure Azure credentials
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Pulumi destroy
+        uses: pulumi/actions@v6
+        with:
+          command: destroy
+          stack-name: maxgherman/trinity-traffic/dev
+          work-dir: infra/pulumi/traffic
+          args: --yes
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+  deploy-clusters:
+    name: Pulumi ${{ needs.plan.outputs.command }} ${{ matrix.cloud }}
+    needs:
+      - plan
+      - destroy-traffic
+    if: always() && needs.plan.outputs.cloud != 'traffic' && (needs.destroy-traffic.result == 'success' || needs.destroy-traffic.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment:
+      name: infra-deploy-approval
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.plan.outputs.cluster_matrix) }}
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.33.0
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npm run check
+
+      - name: Manifest check
+        run: npm run check:manifests
+
+      - name: Render application overlay
+        run: |
+          kubectl kustomize apps/hello/overlays/${{ matrix.cloud }} >/tmp/hello-${{ matrix.cloud }}.yaml
+          kubectl kustomize apps/mandelbrot/overlays/${{ matrix.cloud }} >/tmp/mandelbrot-${{ matrix.cloud }}.yaml
+          kubectl kustomize platform/secrets-demo/overlays/${{ matrix.cloud }} >/tmp/secrets-demo-${{ matrix.cloud }}.yaml
+          kubectl kustomize platform/observability/overlays/${{ matrix.cloud }} >/tmp/observability-${{ matrix.cloud }}.yaml
+
+      - name: Render Argo CD root
+        run: kubectl kustomize platform/argocd/clusters/${{ matrix.cloud }} >/tmp/argocd-${{ matrix.cloud }}.yaml
+
+      - name: Configure AWS credentials
+        if: matrix.cloud == 'aws'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-region: us-east-1
+          role-to-assume: ${{ vars.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          role-session-name: trinity-pulumi-deploy-${{ github.run_id }}
+
+      - name: Configure GCP credentials
+        if: matrix.cloud == 'gcp'
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: trinity-k8s
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud SDK
+        if: matrix.cloud == 'gcp'
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Configure Azure credentials
+        if: matrix.cloud == 'azure'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Pulumi ${{ needs.plan.outputs.command }}
+        uses: pulumi/actions@v6
+        with:
+          command: ${{ needs.plan.outputs.command }}
+          stack-name: ${{ matrix.stack }}
+          work-dir: ${{ matrix.workdir }}
+          upsert: ${{ needs.plan.outputs.command == 'up' }}
+          args: --yes
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          AWS_CLUSTER_ADMIN_PRINCIPAL_ARN: ${{ vars.AWS_CLUSTER_ADMIN_PRINCIPAL_ARN }}
+
+  deploy-traffic:
+    name: Pulumi up traffic
+    needs:
+      - plan
+      - deploy-clusters
+    if: always() && needs.plan.outputs.command == 'up' && (needs.plan.outputs.cloud == 'all' || needs.plan.outputs.cloud == 'traffic') && (needs.deploy-clusters.result == 'success' || needs.deploy-clusters.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment:
+      name: infra-deploy-approval
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npm run check
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-region: us-east-1
+          role-to-assume: ${{ vars.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          role-session-name: trinity-pulumi-traffic-${{ github.run_id }}
+
+      - name: Configure GCP credentials
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: trinity-k8s
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Configure Azure credentials
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Pulumi up
+        uses: pulumi/actions@v6
+        with:
+          command: up
+          stack-name: maxgherman/trinity-traffic/dev
+          work-dir: infra/pulumi/traffic
+          upsert: true
+          args: --yes
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}

@@ -1,0 +1,8 @@
+name: trinity-bootstrap
+description: GitHub Actions OIDC bootstrap identities for The Trinity platform exercise.
+runtime:
+  name: nodejs
+  options:
+    typescript: true
+main: index.ts
+

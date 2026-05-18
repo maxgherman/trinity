@@ -1,0 +1,13 @@
+config:
+  trinity:environment: dev
+  trinity:region: us-central1
+  trinity:kubernetesVersion: "1.33"
+  gcp:project: trinity-k8s
+  trinity:secretsDemoValue:
+    secure: AAABANE3FzsqjFe72eE6mIymsOf/4xLJUp+JAkU9izs1E0HJgrb+FUk4Em6fxA==
+  trinity:grafanaCloudRemoteWriteUrl:
+    secure: AAABAFWVIFIJ6fGBROeB/iY8umfKxP2i4fks4/OlPs99Vc9S3T7QWK7hHNs4eBfRtqNK2v8m0bjUmWksxhjK6lFl0+vOIn5nDsxIuF3JSifZ3SVNkEUOaP5hl+D2jvWoBEVA67josqk=
+  trinity:grafanaCloudPrometheusUsername:
+    secure: AAABAPxFFwEUdoHoR6NOWKJyUa9YbcNuzgwZK74jKrUlAvoA6cnw
+  trinity:grafanaCloudPrometheusPassword:
+    secure: AAABAG1/qER4fMD0jy2GES5aF2vmgN4zSVyfbn54U6NoPaxHeMxrmGpzh4nSm4tlHfjlBP0yF+Egf0my+clJWU80Se3KKYAM1KOopR7Z+XXg754Gy8mougJIPxDLddhaXgtG6WPz/lkoiu47bSq6WOPwiSIK1TGfG9Cippam8ayrQATZJNNYvPaiCmJvfBWizrVFWLyBWxSRsUeYQmK1X4lILtFIhjqnmxfTkzxPDuojMTw7e94drp2YZu15oXkU

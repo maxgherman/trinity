@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: secrets-demo
+  labels:
+    app.kubernetes.io/name: secrets-demo
+    app.kubernetes.io/part-of: trinity
+    app.kubernetes.io/managed-by: argocd

@@ -1,0 +1,10 @@
+config:
+  trinity:githubOwner: maxgherman
+  trinity:githubRepository: trinity
+  trinity:githubEnvironments:
+    - ci-pr-approval
+    - infra-deploy-approval
+  trinity:awsRegion: us-east-1
+  trinity:reuseAwsGithubOidcProvider: true
+  trinity:azureRegion: eastus
+  gcp:project: trinity-k8s
