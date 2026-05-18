@@ -1,0 +1,8 @@
+name: trinity-gcp
+description: GCP GKE foundation for The Trinity platform exercise.
+runtime:
+  name: nodejs
+  options:
+    typescript: true
+main: index.ts
+
