@@ -1,0 +1,35 @@
+{
+  "name": "the-trinity",
+  "private": true,
+  "scripts": {
+    "check": "npm run check:infra && npm run check:app",
+    "check:infra": "tsc --noEmit",
+    "check:app": "node --check apps/mandelbrot/base/app/server.js",
+    "check:manifests": "node scripts/check-manifests.mjs",
+    "preview:bootstrap": "pulumi -C infra/pulumi/bootstrap preview",
+    "preview:aws": "pulumi -C infra/pulumi/aws preview",
+    "preview:gcp": "pulumi -C infra/pulumi/gcp preview",
+    "preview:azure": "pulumi -C infra/pulumi/azure preview",
+    "up:bootstrap": "pulumi -C infra/pulumi/bootstrap up",
+    "up:aws": "pulumi -C infra/pulumi/aws up",
+    "up:gcp": "pulumi -C infra/pulumi/gcp up",
+    "up:azure": "pulumi -C infra/pulumi/azure up",
+    "destroy:bootstrap": "pulumi -C infra/pulumi/bootstrap destroy",
+    "destroy:aws": "pulumi -C infra/pulumi/aws destroy",
+    "destroy:gcp": "pulumi -C infra/pulumi/gcp destroy",
+    "destroy:azure": "pulumi -C infra/pulumi/azure destroy"
+  },
+  "dependencies": {
+    "@pulumi/aws": "7.27.0",
+    "@pulumi/azure-native": "3.17.0",
+    "@pulumi/eks": "4.2.0",
+    "@pulumi/gcp": "9.21.0",
+    "@pulumi/kubernetes": "4.30.0",
+    "@pulumi/pulumi": "^3.232.0"
+  },
+  "devDependencies": {
+    "js-yaml": "4.1.0",
+    "@types/node": "25.6.0",
+    "typescript": "6.0.3"
+  }
+}

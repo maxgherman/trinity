@@ -1,0 +1,5 @@
+config:
+  trinity:environment: dev
+  trinity:region: us-central1
+  trinity:kubernetesVersion: "1.33"
+  gcp:project: trinity-k8s

@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+configMapGenerator:
+  - name: mandelbrot-stage-urls
+    behavior: merge
+    literals:
+      - AWS_STAGE_URL=
+      - GCP_STAGE_URL=
+      - AZURE_STAGE_URL=
+patches:
+  - target:
+      kind: Deployment
+      name: mandelbrot
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value
+        value: aws
+      - op: replace
+        path: /spec/template/spec/containers/0/env/1/value
+        value: us-east-1

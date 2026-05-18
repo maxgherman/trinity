@@ -1,0 +1,4 @@
+config:
+  trinity:environment: dev
+  trinity:region: eastus
+  trinity:kubernetesVersion: "1.33"
