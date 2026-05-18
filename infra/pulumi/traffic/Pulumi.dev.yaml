@@ -1,0 +1,3 @@
+config:
+  trinity:environment: dev
+  trinity:region: eastus

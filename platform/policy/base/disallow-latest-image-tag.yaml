@@ -1,0 +1,36 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: trinity-disallow-latest-image-tag
+  annotations:
+    policies.kyverno.io/title: Disallow Latest Image Tag
+    policies.kyverno.io/category: Trinity Baseline
+    policies.kyverno.io/severity: medium
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: disallow-latest-image-tag
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - hello
+                - mandelbrot
+                - observability
+                - secrets-demo
+      validate:
+        message: Container images must use explicit non-latest tags.
+        deny:
+          conditions:
+            any:
+              - key: "{{ images.containers.*.tag || '' }}"
+                operator: AnyIn
+                value:
+                  - latest
+              - key: "{{ images.initContainers.*.tag || '' }}"
+                operator: AnyIn
+                value:
+                  - latest

@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: trinity-policies-aws
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
+  labels:
+    app.kubernetes.io/part-of: trinity
+    trinity.io/cloud: aws
+spec:
+  project: trinity
+  source:
+    repoURL: https://github.com/maxgherman/trinity.git
+    targetRevision: main
+    path: platform/policy/overlays/aws
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kyverno
+  ignoreDifferences:
+    - group: kyverno.io
+      kind: ClusterPolicy
+      jsonPointers:
+        - /status
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
