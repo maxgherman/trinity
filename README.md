@@ -134,6 +134,11 @@ npm install
 npm run check
 ```
 
+## Runbook
+
+Operational checks, failure handling, rollback, secrets, policy, and teardown
+steps live in [docs/runbook.md](docs/runbook.md).
+
 ## GitHub Actions
 
 CI runs on pull requests and is gated by the `ci-pr-approval` environment. After approval it validates TypeScript, validates Kubernetes manifests, renders Kustomize overlays, and runs `pulumi preview` for AWS, GCP, Azure, and the traffic stack.
@@ -941,4 +946,3 @@ npm run destroy:gcp
 npm run destroy:azure
 npm run destroy:traffic
 ```
-
