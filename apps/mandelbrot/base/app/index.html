@@ -232,6 +232,7 @@
     let frame = 0;
     let runToken = 0;
     let nextRenderTimer;
+    const renderDelayMs = 75;
 
     async function loadMeta() {
       const response = await fetch("/api/meta");
@@ -353,7 +354,7 @@
       }
 
       if (running) {
-        nextRenderTimer = window.setTimeout(() => renderFrame(token), 350);
+        nextRenderTimer = window.setTimeout(() => renderFrame(token), renderDelayMs);
       }
     }
 
