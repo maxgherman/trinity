@@ -1,0 +1,7 @@
+name: trinity-traffic
+description: Azure Front Door global traffic layer for The Trinity platform exercise.
+runtime:
+  name: nodejs
+  options:
+    typescript: true
+main: index.ts
