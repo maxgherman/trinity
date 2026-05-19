@@ -233,6 +233,39 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Clean up Argo CD finalizers before destroy
+        if: needs.plan.outputs.command == 'destroy'
+        env:
+          CLOUD: ${{ matrix.cloud }}
+        run: |
+          set -euo pipefail
+
+          case "${CLOUD}" in
+            aws)
+              aws eks update-kubeconfig \
+                --name trinity-dev-aws-cluster \
+                --region us-east-1 \
+                --alias trinity-aws
+              ;;
+            gcp)
+              gcloud container clusters get-credentials trinity-dev-gcp-cluster \
+                --region us-central1 \
+                --project trinity-k8s
+              ;;
+            azure)
+              az aks get-credentials \
+                --resource-group trinity-dev-azure-rg \
+                --name trinity-dev-azure-cluster \
+                --overwrite-existing
+              ;;
+            *)
+              echo "Unsupported cloud: ${CLOUD}" >&2
+              exit 1
+              ;;
+          esac
+
+          npm run cleanup:argocd-finalizers
+
       - name: Pulumi ${{ needs.plan.outputs.command }}
         uses: pulumi/actions@v6
         with:
