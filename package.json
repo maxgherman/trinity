@@ -6,6 +6,7 @@
     "check:infra": "tsc --noEmit",
     "check:app": "node --check apps/mandelbrot/base/app/server.js",
     "check:manifests": "node scripts/check-manifests.mjs",
+    "cleanup:argocd-finalizers": "node scripts/cleanup-argocd-finalizers.mjs",
     "apply:secret-backends": "node scripts/apply-secret-backends.mjs",
     "delete:secret-backends": "node scripts/delete-secret-backends.mjs",
     "test:traffic-failover": "node scripts/test-frontdoor-failover.mjs",

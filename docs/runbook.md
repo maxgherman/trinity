@@ -390,6 +390,35 @@ KUBECONFIG=./kubeconfig.gcp.yaml kubectl -n observability describe pod <pod-name
 The full platform needs enough CPU for Argo CD, External Secrets, Kyverno,
 observability, and Mandelbrot. The GCP node pool is configured for two nodes.
 
+### Destroy fails deleting the argocd namespace
+
+Symptom:
+
+```text
+Helm uninstall returned information: These resources were kept due to the resource policy:
+[CustomResourceDefinition] applications.argoproj.io
+[CustomResourceDefinition] applicationsets.argoproj.io
+[CustomResourceDefinition] appprojects.argoproj.io
+
+kubernetes:core/v1:Namespace (...-argocd-namespace):
+  finalizers might be preventing deletion
+  timed out waiting for the condition
+```
+
+Cause: Helm keeps the Argo CD CRDs, and remaining Argo CD
+`Application`, `ApplicationSet`, or `AppProject` objects can keep finalizers
+that block the namespace from terminating.
+
+Fix:
+
+```sh
+KUBECONFIG=./kubeconfig.aws.yaml npm run cleanup:argocd-finalizers
+npm run destroy:aws
+```
+
+Use the matching kubeconfig and destroy script for `gcp` or `azure`. The GitHub
+destroy workflow runs this cleanup automatically before cluster stack destroy.
+
 ## Destroy And Cost Shutdown
 
 Preferred path: GitHub Actions `Pulumi Deploy` workflow.
@@ -403,10 +432,18 @@ Local teardown order:
 
 ```sh
 npm run destroy:traffic
+KUBECONFIG=./kubeconfig.aws.yaml npm run cleanup:argocd-finalizers
 npm run destroy:aws
+KUBECONFIG=./kubeconfig.gcp.yaml npm run cleanup:argocd-finalizers
 npm run destroy:gcp
+KUBECONFIG=./kubeconfig.azure.yaml npm run cleanup:argocd-finalizers
 npm run destroy:azure
 ```
+
+The GitHub `Pulumi Deploy` destroy path runs this cleanup automatically before
+destroying each cluster stack. It removes finalizers from Argo CD
+`Application`, `ApplicationSet`, and `AppProject` resources so the `argocd`
+namespace can terminate after the Helm release is uninstalled.
 
 Do not destroy the bootstrap stack unless you also intend to remove GitHub
 Actions cloud access:
