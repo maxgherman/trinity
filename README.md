@@ -1,5 +1,9 @@
 # The Trinity
 
+![The trinity of cloud providers](./logo.png "The trinity of cloud providers")
+
+![Platform overview](./docs/platform-overview.svg "Platform overview")
+
 Multi-cloud Kubernetes platform exercise across AWS, GCP, and Azure.
 
 The first phase provisions one managed Kubernetes cluster per cloud with Pulumi:

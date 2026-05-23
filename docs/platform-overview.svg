@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680" role="img" aria-labelledby="title desc">
+  <title id="title">The Trinity platform overview</title>
+  <desc id="desc">A high level architecture showing traffic, GitOps, secrets, observability, policy, and rollout controls across AWS, GCP, and Azure Kubernetes clusters.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; }
+      .aws { fill: #fff7ed; stroke: #fb923c; }
+      .gcp { fill: #eff6ff; stroke: #60a5fa; }
+      .azure { fill: #ecfeff; stroke: #06b6d4; }
+      .control { fill: #f1f5f9; stroke: #64748b; }
+      .accent { fill: #eef2ff; stroke: #6366f1; }
+      .store { fill: #f0fdf4; stroke: #22c55e; }
+      .text { fill: #0f172a; font: 600 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .small { fill: #334155; font: 500 16px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .tiny { fill: #475569; font: 500 14px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .arrow { stroke: #334155; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#334155" />
+    </marker>
+  </defs>
+  <rect class="bg" width="1200" height="680" rx="22" />
+
+  <rect class="panel" x="40" y="34" width="1120" height="92" rx="14" />
+  <text class="text" x="600" y="72" text-anchor="middle">The Trinity</text>
+  <text class="small" x="600" y="100" text-anchor="middle">three ordinary managed Kubernetes clusters operated as one platform</text>
+
+  <rect class="accent" x="70" y="165" width="230" height="82" rx="12" />
+  <text class="small" x="185" y="198" text-anchor="middle">Users</text>
+  <text class="tiny" x="185" y="222" text-anchor="middle">public Mandelbrot UI</text>
+
+  <rect class="accent" x="405" y="155" width="390" height="102" rx="12" />
+  <text class="small" x="600" y="192" text-anchor="middle">Azure Front Door</text>
+  <text class="tiny" x="600" y="218" text-anchor="middle">health-aware global routing and failover</text>
+
+  <line class="arrow" x1="300" y1="206" x2="392" y2="206" />
+
+  <rect class="aws" x="70" y="318" width="320" height="210" rx="16" />
+  <text class="text" x="230" y="355" text-anchor="middle">AWS</text>
+  <text class="small" x="230" y="386" text-anchor="middle">EKS cluster</text>
+  <rect class="panel" x="105" y="410" width="250" height="34" rx="8" />
+  <text class="tiny" x="230" y="432" text-anchor="middle">Argo CD app-of-apps</text>
+  <rect class="panel" x="105" y="454" width="250" height="34" rx="8" />
+  <text class="tiny" x="230" y="476" text-anchor="middle">Mandelbrot Rollout</text>
+  <rect class="panel" x="105" y="498" width="250" height="34" rx="8" />
+  <text class="tiny" x="230" y="520" text-anchor="middle">ESO, Kyverno, Observability</text>
+
+  <rect class="gcp" x="440" y="318" width="320" height="210" rx="16" />
+  <text class="text" x="600" y="355" text-anchor="middle">GCP</text>
+  <text class="small" x="600" y="386" text-anchor="middle">GKE cluster</text>
+  <rect class="panel" x="475" y="410" width="250" height="34" rx="8" />
+  <text class="tiny" x="600" y="432" text-anchor="middle">Argo CD app-of-apps</text>
+  <rect class="panel" x="475" y="454" width="250" height="34" rx="8" />
+  <text class="tiny" x="600" y="476" text-anchor="middle">Mandelbrot Rollout</text>
+  <rect class="panel" x="475" y="498" width="250" height="34" rx="8" />
+  <text class="tiny" x="600" y="520" text-anchor="middle">ESO, Kyverno, Observability</text>
+
+  <rect class="azure" x="810" y="318" width="320" height="210" rx="16" />
+  <text class="text" x="970" y="355" text-anchor="middle">Azure</text>
+  <text class="small" x="970" y="386" text-anchor="middle">AKS cluster</text>
+  <rect class="panel" x="845" y="410" width="250" height="34" rx="8" />
+  <text class="tiny" x="970" y="432" text-anchor="middle">Argo CD app-of-apps</text>
+  <rect class="panel" x="845" y="454" width="250" height="34" rx="8" />
+  <text class="tiny" x="970" y="476" text-anchor="middle">Mandelbrot Rollout</text>
+  <rect class="panel" x="845" y="498" width="250" height="34" rx="8" />
+  <text class="tiny" x="970" y="520" text-anchor="middle">ESO, Kyverno, Observability</text>
+
+  <line class="arrow" x1="508" y1="258" x2="280" y2="308" />
+  <line class="arrow" x1="600" y1="258" x2="600" y2="308" />
+  <line class="arrow" x1="692" y1="258" x2="920" y2="308" />
+
+  <rect class="control" x="80" y="575" width="290" height="58" rx="12" />
+  <text class="small" x="225" y="599" text-anchor="middle">GitHub Actions + Pulumi</text>
+  <text class="tiny" x="225" y="621" text-anchor="middle">provision, bootstrap, rollout operations</text>
+
+  <rect class="store" x="455" y="575" width="290" height="58" rx="12" />
+  <text class="small" x="600" y="599" text-anchor="middle">Cloud Secret Backends</text>
+  <text class="tiny" x="600" y="621" text-anchor="middle">Secrets Manager, Secret Manager, Key Vault</text>
+
+  <rect class="control" x="830" y="575" width="290" height="58" rx="12" />
+  <text class="small" x="975" y="599" text-anchor="middle">Grafana Cloud</text>
+  <text class="tiny" x="975" y="621" text-anchor="middle">central metrics, logs, and traces</text>
+</svg>
