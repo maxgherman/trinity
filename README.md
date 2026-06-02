@@ -18,12 +18,6 @@ The second phase moves Kubernetes application delivery to Argo CD. Pulumi still 
 
 ```text
 apps/
-  hello/
-    base/
-    overlays/
-      aws/
-      gcp/
-      azure/
   mandelbrot/
     base/
     overlays/
@@ -56,9 +50,6 @@ platform/
 
 Each cloud folder is a separate Pulumi project. Shared helpers live in `infra/pulumi/components`.
 The `traffic` project owns the Azure Front Door global entry point.
-
-The `hello` app is a temporary proof workload. It is deployed by Argo CD from
-Kustomize overlays, one overlay per cloud.
 
 The `mandelbrot` app is the first multi-cloud demo workload. Each cluster runs
 the same renderer service with cloud-specific overlay configuration. A render
@@ -226,8 +217,6 @@ The root Argo CD application reconciles:
 
 - the `trinity` Argo CD project
 - the cloud-specific Argo Rollouts controller application
-- the cloud-specific `hello` application
-- the `hello` namespace, deployment, and public `LoadBalancer` service
 - the cloud-specific `mandelbrot` application
 - the `mandelbrot` rollout and runtime ConfigMaps
 - the cloud-specific observability, secrets, and policy applications
@@ -288,19 +277,6 @@ Then check Argo CD:
 ```sh
 KUBECONFIG=./kubeconfig.aws.yaml kubectl -n argocd get pods
 pulumi -C infra/pulumi/aws stack output argocdRootApplicationName
-```
-
-Then check the GitOps-managed hello service:
-
-```sh
-KUBECONFIG=./kubeconfig.aws.yaml kubectl -n hello get deployment,service,pods
-KUBECONFIG=./kubeconfig.aws.yaml kubectl -n hello get service hello
-```
-
-Use whichever `EXTERNAL-IP` value is populated by the cloud provider. AWS commonly returns a hostname; GCP and Azure commonly return an IP:
-
-```sh
-curl "http://<external-hostname-or-ip>"
 ```
 
 Then check the Mandelbrot renderer:
@@ -620,7 +596,6 @@ The AWS app should appear beside the other Argo CD applications:
 ```text
 NAME                         SYNC STATUS   HEALTH STATUS
 trinity-dev-aws-root         Synced        Healthy
-trinity-hello-aws            Synced        Healthy
 trinity-mandelbrot-aws       Synced        Healthy
 trinity-observability-aws    Synced        Healthy
 trinity-secrets-aws          Synced        Healthy
@@ -884,7 +859,6 @@ The first baseline intentionally scopes enforcement to the Trinity workload
 namespaces:
 
 ```text
-hello
 mandelbrot
 observability
 secrets-demo
@@ -922,7 +896,7 @@ requests and limits:
 
 ```sh
 for cloud in aws gcp azure; do
-  KUBECONFIG=./kubeconfig.${cloud}.yaml kubectl -n hello run policy-denied \
+  KUBECONFIG=./kubeconfig.${cloud}.yaml kubectl -n mandelbrot run policy-denied \
     --image=nginx:latest \
     --restart=Never
 done

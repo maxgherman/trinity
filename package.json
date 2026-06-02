@@ -7,6 +7,7 @@
     "check:app": "node --check apps/mandelbrot/base/app/server.js",
     "check:manifests": "node scripts/check-manifests.mjs",
     "cleanup:argocd-finalizers": "node scripts/cleanup-argocd-finalizers.mjs",
+    "prepare:destroy": "node scripts/prepare-cluster-destroy.mjs",
     "apply:secret-backends": "node scripts/apply-secret-backends.mjs",
     "delete:secret-backends": "node scripts/delete-secret-backends.mjs",
     "test:traffic-failover": "node scripts/test-frontdoor-failover.mjs",
@@ -21,9 +22,9 @@
     "up:azure": "pulumi -C infra/pulumi/azure up",
     "up:traffic": "pulumi -C infra/pulumi/traffic up",
     "destroy:bootstrap": "pulumi -C infra/pulumi/bootstrap destroy",
-    "destroy:aws": "pulumi -C infra/pulumi/aws destroy",
-    "destroy:gcp": "pulumi -C infra/pulumi/gcp destroy",
-    "destroy:azure": "pulumi -C infra/pulumi/azure destroy",
+    "destroy:aws": "npm run prepare:destroy -- --cloud aws && pulumi -C infra/pulumi/aws destroy",
+    "destroy:gcp": "npm run prepare:destroy -- --cloud gcp && pulumi -C infra/pulumi/gcp destroy",
+    "destroy:azure": "npm run prepare:destroy -- --cloud azure && pulumi -C infra/pulumi/azure destroy",
     "destroy:traffic": "pulumi -C infra/pulumi/traffic destroy"
   },
   "dependencies": {

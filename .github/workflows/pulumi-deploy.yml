@@ -194,7 +194,6 @@ jobs:
 
       - name: Render application overlay
         run: |
-          kubectl kustomize apps/hello/overlays/${{ matrix.cloud }} >/tmp/hello-${{ matrix.cloud }}.yaml
           kubectl kustomize apps/mandelbrot/overlays/${{ matrix.cloud }} >/tmp/mandelbrot-${{ matrix.cloud }}.yaml
           kubectl kustomize platform/secrets-demo/overlays/${{ matrix.cloud }} >/tmp/secrets-demo-${{ matrix.cloud }}.yaml
           kubectl kustomize platform/observability/overlays/${{ matrix.cloud }} >/tmp/observability-${{ matrix.cloud }}.yaml
@@ -237,34 +236,7 @@ jobs:
         if: needs.plan.outputs.command == 'destroy'
         env:
           CLOUD: ${{ matrix.cloud }}
-        run: |
-          set -euo pipefail
-
-          case "${CLOUD}" in
-            aws)
-              aws eks update-kubeconfig \
-                --name trinity-dev-aws-cluster \
-                --region us-east-1 \
-                --alias trinity-aws
-              ;;
-            gcp)
-              gcloud container clusters get-credentials trinity-dev-gcp-cluster \
-                --region us-central1 \
-                --project trinity-k8s
-              ;;
-            azure)
-              az aks get-credentials \
-                --resource-group trinity-dev-azure-rg \
-                --name trinity-dev-azure-cluster \
-                --overwrite-existing
-              ;;
-            *)
-              echo "Unsupported cloud: ${CLOUD}" >&2
-              exit 1
-              ;;
-          esac
-
-          npm run cleanup:argocd-finalizers
+        run: npm run prepare:destroy -- --cloud "${CLOUD}"
 
       - name: Pulumi ${{ needs.plan.outputs.command }}
         uses: pulumi/actions@v6
