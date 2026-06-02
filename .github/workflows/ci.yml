@@ -63,9 +63,6 @@ jobs:
 
       - name: Render application overlays
         run: |
-          kubectl kustomize apps/hello/overlays/aws >/tmp/hello-aws.yaml
-          kubectl kustomize apps/hello/overlays/gcp >/tmp/hello-gcp.yaml
-          kubectl kustomize apps/hello/overlays/azure >/tmp/hello-azure.yaml
           kubectl kustomize apps/mandelbrot/overlays/aws >/tmp/mandelbrot-aws.yaml
           kubectl kustomize apps/mandelbrot/overlays/gcp >/tmp/mandelbrot-gcp.yaml
           kubectl kustomize apps/mandelbrot/overlays/azure >/tmp/mandelbrot-azure.yaml

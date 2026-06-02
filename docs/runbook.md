@@ -331,7 +331,7 @@ Test admission denial:
 
 ```sh
 for cloud in aws gcp azure; do
-  KUBECONFIG=./kubeconfig.${cloud}.yaml kubectl -n hello run policy-denied \
+  KUBECONFIG=./kubeconfig.${cloud}.yaml kubectl -n mandelbrot run policy-denied \
     --image=nginx:latest \
     --restart=Never
 done

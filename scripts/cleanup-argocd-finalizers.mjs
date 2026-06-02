@@ -37,6 +37,48 @@ function listResources(kind) {
     .filter(Boolean);
 }
 
+function listLoadBalancerServices() {
+  const result = run(
+    ["get", "services", "--all-namespaces", "-o", "json"],
+    { capture: true },
+  );
+  const services = JSON.parse(result.stdout);
+
+  return services.items
+    .filter((service) => service.spec?.type === "LoadBalancer")
+    .map((service) => ({
+      namespace: service.metadata.namespace,
+      name: service.metadata.name,
+    }));
+}
+
+function deleteLoadBalancerServices() {
+  const services = listLoadBalancerServices();
+
+  if (services.length === 0) {
+    console.log("No LoadBalancer services found.");
+    return;
+  }
+
+  for (const service of services) {
+    console.log(
+      `Deleting LoadBalancer service ${service.namespace}/${service.name}.`,
+    );
+    run([
+      "-n",
+      service.namespace,
+      "delete",
+      "service",
+      service.name,
+      "--ignore-not-found",
+      "--wait=true",
+      "--timeout=15m",
+    ]);
+  }
+}
+
+deleteLoadBalancerServices();
+
 const namespaceCheck = run(
   ["get", "namespace", namespace],
   { allowFailure: true, capture: true },
