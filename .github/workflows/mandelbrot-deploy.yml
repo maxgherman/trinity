@@ -167,7 +167,7 @@ jobs:
           git switch -c "${RELEASE_BRANCH}"
           git add apps/mandelbrot/overlays
           git commit -m "Deploy Mandelbrot ${MANDELBROT_IMAGE_TAG}"
-          git push --force-with-lease origin "HEAD:${RELEASE_BRANCH}"
+          git push --force origin "HEAD:${RELEASE_BRANCH}"
 
           existing_pr="$(gh pr list \
             --head "${RELEASE_BRANCH}" \
