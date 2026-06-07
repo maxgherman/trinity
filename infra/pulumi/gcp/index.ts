@@ -21,7 +21,6 @@ const {
   kubernetesVersion,
   gitRepositoryUrl,
   gitRevision,
-  mandelbrotImageTag,
 } = getTrinityConfig();
 const gcpConfig = new pulumi.Config("gcp");
 const project = gcpConfig.require("project");
@@ -84,8 +83,6 @@ new gcp.artifactregistry.RepositoryIamMember(
   },
   { provider },
 );
-
-const mandelbrotImage = pulumi.interpolate`${region}-docker.pkg.dev/${project}/${mandelbrotRepository.repositoryId}/mandelbrot:${mandelbrotImageTag}`;
 
 const mandelbrotAddress = new gcp.compute.Address(
   mandelbrotAddressName,
@@ -265,7 +262,6 @@ const argocd = bootstrapArgoCd({
   provider: k8sProvider,
   repositoryUrl: gitRepositoryUrl,
   revision: gitRevision,
-  mandelbrotImage,
   dependsOn: [nodePool, externalSecretsServiceAccount.serviceAccount],
 });
 
@@ -277,7 +273,6 @@ export const mandelbrotServiceName = mandelbrotService.serviceName;
 export const mandelbrotOriginHost = mandelbrotAddress.address;
 export const mandelbrotStageUrl = pulumi.interpolate`http://${mandelbrotAddress.address}`;
 export const mandelbrotRepositoryUrl = pulumi.interpolate`${region}-docker.pkg.dev/${project}/${mandelbrotRepository.repositoryId}`;
-export const mandelbrotImageName = mandelbrotImage;
 export const externalSecretsGcpServiceAccountEmail =
   externalSecretsGoogleServiceAccount.email;
 export {

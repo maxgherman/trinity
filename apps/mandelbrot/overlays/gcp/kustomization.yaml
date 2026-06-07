@@ -2,6 +2,10 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../base
+images:
+  - name: mandelbrot
+    newName: us-central1-docker.pkg.dev/trinity-k8s/trinity-dev-gcp-mandelbrot/mandelbrot
+    newTag: sha-7402835a5f8e272372444f14417234b60600f04b
 patches:
   - target:
       kind: Rollout

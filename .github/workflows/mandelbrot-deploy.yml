@@ -1,0 +1,165 @@
+name: Mandelbrot Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/mandelbrot-deploy.yml"
+      - "apps/mandelbrot/Dockerfile"
+      - "apps/mandelbrot/.dockerignore"
+      - "apps/mandelbrot/base/**"
+      - "scripts/build-push-mandelbrot-image.mjs"
+      - "scripts/update-mandelbrot-gitops-images.mjs"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: mandelbrot-deploy
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    name: Build and push ${{ matrix.cloud }}
+    runs-on: ubuntu-latest
+    environment:
+      name: infra-deploy-approval
+    env:
+      TRINITY_ENVIRONMENT: dev
+      AWS_REGION: us-east-1
+      GCP_PROJECT: trinity-k8s
+      GCP_REGION: us-central1
+      AZURE_CONTAINER_REGISTRY: ${{ vars.AZURE_CONTAINER_REGISTRY || 'trinitydevazureacr' }}
+      MANDELBROT_IMAGE_TAG: sha-${{ github.sha }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cloud: aws
+          - cloud: gcp
+          - cloud: azure
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check
+        run: npm run check
+
+      - name: Configure AWS credentials
+        if: matrix.cloud == 'aws'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-region: us-east-1
+          role-to-assume: ${{ vars.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          role-session-name: trinity-mandelbrot-deploy-${{ github.run_id }}
+
+      - name: Configure GCP credentials
+        if: matrix.cloud == 'gcp'
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: trinity-k8s
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud SDK
+        if: matrix.cloud == 'gcp'
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Azure credentials
+        if: matrix.cloud == 'azure'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push Mandelbrot image
+        run: |
+          npm run push:mandelbrot-image -- \
+            --cloud "${{ matrix.cloud }}" \
+            --tag "${MANDELBROT_IMAGE_TAG}" \
+            --metadata-file "mandelbrot-image-${{ matrix.cloud }}.json"
+
+      - name: Upload image metadata
+        uses: actions/upload-artifact@v5
+        with:
+          name: mandelbrot-image-${{ matrix.cloud }}
+          path: mandelbrot-image-${{ matrix.cloud }}.json
+          if-no-files-found: error
+
+  update-gitops:
+    name: Update GitOps image tags
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    env:
+      MANDELBROT_IMAGE_TAG: sha-${{ github.sha }}
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.33.0
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download image metadata
+        uses: actions/download-artifact@v5
+        with:
+          pattern: mandelbrot-image-*
+          path: /tmp/mandelbrot-images
+          merge-multiple: true
+
+      - name: Update overlay image tags
+        run: |
+          npm run update:mandelbrot-gitops-images -- \
+            --metadata-file /tmp/mandelbrot-images/mandelbrot-image-aws.json \
+            --metadata-file /tmp/mandelbrot-images/mandelbrot-image-gcp.json \
+            --metadata-file /tmp/mandelbrot-images/mandelbrot-image-azure.json
+
+      - name: Render updated overlays
+        run: |
+          kubectl kustomize apps/mandelbrot/overlays/aws >/tmp/mandelbrot-aws.yaml
+          kubectl kustomize apps/mandelbrot/overlays/gcp >/tmp/mandelbrot-gcp.yaml
+          kubectl kustomize apps/mandelbrot/overlays/azure >/tmp/mandelbrot-azure.yaml
+
+      - name: Commit image tag update
+        run: |
+          if git diff --quiet -- apps/mandelbrot/overlays; then
+            echo "Mandelbrot overlays already reference ${MANDELBROT_IMAGE_TAG}."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/mandelbrot/overlays
+          git commit -m "Deploy Mandelbrot ${MANDELBROT_IMAGE_TAG}"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push
