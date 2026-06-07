@@ -1,0 +1,6 @@
+*
+!Dockerfile
+!base/
+!base/app/
+!base/app/index.html
+!base/app/server.js

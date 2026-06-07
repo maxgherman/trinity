@@ -14,6 +14,7 @@ on:
       - "infra/pulumi/components/**"
       - "apps/**"
       - "platform/**"
+      - "scripts/build-push-mandelbrot-image.mjs"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.json"
@@ -162,6 +163,13 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: infra-deploy-approval
+    env:
+      TRINITY_ENVIRONMENT: dev
+      AWS_REGION: us-east-1
+      GCP_PROJECT: trinity-k8s
+      GCP_REGION: us-central1
+      AZURE_CONTAINER_REGISTRY: ${{ vars.AZURE_CONTAINER_REGISTRY || 'trinitydevazureacr' }}
+      MANDELBROT_IMAGE_TAG: sha-${{ github.sha }}
 
     strategy:
       fail-fast: false
@@ -249,6 +257,11 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           AWS_CLUSTER_ADMIN_PRINCIPAL_ARN: ${{ vars.AWS_CLUSTER_ADMIN_PRINCIPAL_ARN }}
+          MANDELBROT_IMAGE_TAG: ${{ env.MANDELBROT_IMAGE_TAG }}
+
+      - name: Build and push Mandelbrot image
+        if: needs.plan.outputs.command == 'up'
+        run: npm run push:mandelbrot-image -- --cloud "${{ matrix.cloud }}" --tag "${MANDELBROT_IMAGE_TAG}"
 
   deploy-traffic:
     name: Pulumi up traffic

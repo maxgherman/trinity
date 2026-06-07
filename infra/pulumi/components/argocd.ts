@@ -8,6 +8,7 @@ export interface ArgoCdBootstrapArgs {
   provider: k8s.Provider;
   repositoryUrl: string;
   revision: string;
+  mandelbrotImage: pulumi.Input<string>;
   dependsOn?: pulumi.Input<pulumi.Resource>[];
 }
 
@@ -22,6 +23,7 @@ export function bootstrapArgoCd({
   provider,
   repositoryUrl,
   revision,
+  mandelbrotImage,
   dependsOn = [],
 }: ArgoCdBootstrapArgs): ArgoCdBootstrap {
   const labels = commonLabels(cloud, environment);
@@ -106,6 +108,63 @@ export function bootstrapArgoCd({
         update: "5m",
       },
       dependsOn: [release],
+    },
+  );
+
+  new k8s.apiextensions.CustomResourcePatch(
+    resourceName(cloud, environment, "mandelbrot-application"),
+    {
+      apiVersion: "argoproj.io/v1alpha1",
+      kind: "Application",
+      metadata: {
+        name: `trinity-mandelbrot-${cloud}`,
+        namespace: namespace.metadata.name,
+        annotations: {
+          "argocd.argoproj.io/sync-wave": "0",
+          "pulumi.com/patchForce": "true",
+          "pulumi.com/skipAwait": "true",
+        },
+        labels: {
+          ...labels,
+          "app.kubernetes.io/part-of": "trinity",
+          "trinity.io/cloud": cloud,
+        },
+      },
+      spec: {
+        project: "trinity",
+        source: {
+          repoURL: repositoryUrl,
+          targetRevision: revision,
+          path: `apps/mandelbrot/overlays/${cloud}`,
+          kustomize: {
+            images: [pulumi.interpolate`mandelbrot=${mandelbrotImage}`],
+          },
+        },
+        destination: {
+          server: "https://kubernetes.default.svc",
+          namespace: "mandelbrot",
+        },
+        syncPolicy: {
+          automated: {
+            prune: true,
+            selfHeal: true,
+          },
+          syncOptions: [
+            "CreateNamespace=true",
+            "ApplyOutOfSyncOnly=true",
+            "SkipDryRunOnMissingResource=true",
+          ],
+        },
+      },
+    },
+    {
+      provider,
+      retainOnDelete: true,
+      customTimeouts: {
+        create: "5m",
+        update: "5m",
+      },
+      dependsOn: [release, rootApplication],
     },
   );
 

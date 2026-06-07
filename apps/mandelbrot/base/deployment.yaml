@@ -25,11 +25,8 @@ spec:
     spec:
       containers:
         - name: mandelbrot
-          image: node:22-alpine
-          imagePullPolicy: IfNotPresent
-          command:
-            - node
-            - /app/server.js
+          image: mandelbrot:dev
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8080
@@ -74,16 +71,10 @@ spec:
               cpu: 750m
               memory: 384Mi
           volumeMounts:
-            - name: app-source
-              mountPath: /app
-              readOnly: true
             - name: stage-urls
               mountPath: /config/stage-urls
               readOnly: true
       volumes:
-        - name: app-source
-          configMap:
-            name: mandelbrot-source
         - name: stage-urls
           configMap:
             name: mandelbrot-stage-urls

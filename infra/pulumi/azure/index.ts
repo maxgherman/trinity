@@ -6,10 +6,11 @@ import * as managedidentity from "@pulumi/azure-native/managedidentity";
 import * as network from "@pulumi/azure-native/network";
 import * as pulumi from "@pulumi/pulumi";
 import * as resources from "@pulumi/azure-native/resources";
+import * as containerregistry from "@pulumi/azure-native/containerregistry";
 import { bootstrapArgoCd } from "../components/argocd";
 import { getTrinityConfig } from "../components/config";
 import { deployMandelbrotService } from "../components/mandelbrot";
-import { commonLabels, resourceName } from "../components/naming";
+import { commonLabels, resourceName, uuidFromString } from "../components/naming";
 import {
   createExternalSecretsServiceAccount,
   externalSecretsNamespaceName,
@@ -26,12 +27,16 @@ const {
   kubernetesVersion,
   gitRepositoryUrl,
   gitRevision,
+  mandelbrotImageTag,
 } = getTrinityConfig();
 
 const resourceGroupName = resourceName("azure", environment, "rg");
 const clusterName = resourceName("azure", environment, "cluster");
 const mandelbrotPublicIpName = resourceName("azure", environment, "mandelbrot");
 const trinityConfig = new pulumi.Config("trinity");
+const containerRegistryName =
+  trinityConfig.get("containerRegistryName") ??
+  trinityConfigSafeRegistryName(`trinity${environment}azureacr`);
 const keyVaultName =
   trinityConfig.get("keyVaultName") ?? `trinity-${environment}-az-kv`;
 const keyVaultResourceGroupName =
@@ -45,6 +50,23 @@ const resourceGroup = new resources.ResourceGroup(resourceGroupName, {
   location: region,
   tags: labels,
 });
+
+const containerRegistry = new containerregistry.Registry(
+  `${clusterName}-registry`,
+  {
+    registryName: containerRegistryName,
+    resourceGroupName: resourceGroup.name,
+    location: resourceGroup.location,
+    sku: {
+      name: containerregistry.SkuName.Basic,
+    },
+    adminUserEnabled: false,
+    tags: {
+      ...labels,
+      component: "mandelbrot",
+    },
+  },
+);
 
 const cluster = new containerservice.ManagedCluster(clusterName, {
   resourceGroupName: resourceGroup.name,
@@ -115,6 +137,33 @@ const kubeconfig = credentials.kubeconfigs.apply((kubeconfigs) =>
 const k8sProvider = new k8s.Provider(`${clusterName}-k8s-provider`, {
   kubeconfig,
 });
+
+const kubeletIdentityObjectId = cluster.identityProfile.apply((profile) => {
+  const objectId = profile?.kubeletidentity?.objectId;
+  if (!objectId) {
+    throw new Error("AKS cluster did not report a kubelet identity object ID.");
+  }
+
+  return objectId;
+});
+
+const acrPullRoleDefinitionId = azureClient.subscriptionId.apply(
+  (subscriptionId) =>
+    `/subscriptions/${subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/7f951dda-4ed3-4680-a7ca-43fe172d538d`,
+);
+
+new authorization.RoleAssignment(
+  `${clusterName}-mandelbrot-acr-pull`,
+  {
+    scope: containerRegistry.id,
+    roleAssignmentName: uuidFromString(`${clusterName}:mandelbrot-acr-pull`),
+    roleDefinitionId: acrPullRoleDefinitionId,
+    principalId: kubeletIdentityObjectId,
+    principalType: authorization.PrincipalType.ServicePrincipal,
+  },
+);
+
+const mandelbrotImage = pulumi.interpolate`${containerRegistry.loginServer}/mandelbrot:${mandelbrotImageTag}`;
 
 const externalSecretsIdentity = new managedidentity.UserAssignedIdentity(
   `${clusterName}-external-secrets`,
@@ -208,6 +257,7 @@ const argocd = bootstrapArgoCd({
   provider: k8sProvider,
   repositoryUrl: gitRepositoryUrl,
   revision: gitRevision,
+  mandelbrotImage,
   dependsOn: [cluster, externalSecretsServiceAccount.serviceAccount],
 });
 
@@ -218,6 +268,8 @@ export const mandelbrotNamespace = mandelbrotService.namespace;
 export const mandelbrotServiceName = mandelbrotService.serviceName;
 export const mandelbrotOriginHost = mandelbrotPublicIp.ipAddress;
 export const mandelbrotStageUrl = pulumi.interpolate`http://${mandelbrotPublicIp.ipAddress}`;
+export const mandelbrotRepositoryUrl = pulumi.interpolate`${containerRegistry.loginServer}/mandelbrot`;
+export const mandelbrotImageName = mandelbrotImage;
 export const externalSecretsAzureClientId = externalSecretsIdentity.clientId;
 export const secretsDemoAzureKeyVaultName = keyVaultName;
 export const secretsDemoAzureKeyVaultUrl = `https://${keyVaultName}.vault.azure.net`;
@@ -227,3 +279,7 @@ export {
   grafanaCloudAzureLogsSecretNames,
   grafanaCloudAzureTracesSecretNames,
 };
+
+function trinityConfigSafeRegistryName(name: string): string {
+  return name.replace(/[^A-Za-z0-9]/g, "").slice(0, 50);
+}
