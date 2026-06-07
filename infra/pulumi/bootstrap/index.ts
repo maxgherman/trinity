@@ -13,6 +13,7 @@ const githubEnvironments = trinityConfig.getObject<string[]>(
   "githubEnvironments",
 ) ?? ["ci-pr-approval", "infra-deploy-approval"];
 const awsRegion = trinityConfig.get("awsRegion") ?? "us-east-1";
+const awsProfile = trinityConfig.get("awsProfile");
 const azureRegion = trinityConfig.get("azureRegion") ?? "eastus";
 const gcpProject = gcpConfig.require("project");
 const reuseAwsGithubOidcProvider =
@@ -60,6 +61,7 @@ function uuidFromString(input: string): string {
 
 const awsProvider = new aws.Provider("bootstrap-aws-provider", {
   region: awsRegion as aws.Region,
+  profile: awsProfile,
 });
 
 const awsGithubOidcProviderArn = existingAwsGithubOidcProviderArn
@@ -248,22 +250,6 @@ new azure.authorization.RoleAssignment("trinity-github-actions-contributor", {
   principalId: azureGithubActionsIdentity.principalId,
   principalType: azure.authorization.PrincipalType.ServicePrincipal,
 });
-
-new azure.authorization.RoleAssignment(
-  "trinity-github-actions-user-access-administrator",
-  {
-    scope: azureSubscriptionScope,
-    roleAssignmentName: uuidFromString(
-      `trinity-github-actions-user-access-administrator:${repoSlug}`,
-    ),
-    roleDefinitionId: azureSubscriptionScope.apply(
-      (scope) =>
-        `${scope}/providers/Microsoft.Authorization/roleDefinitions/f1a07417-d97a-45cb-824c-7a7467783830`,
-    ),
-    principalId: azureGithubActionsIdentity.principalId,
-    principalType: azure.authorization.PrincipalType.ServicePrincipal,
-  },
-);
 
 new azure.authorization.RoleAssignment(
   "trinity-github-actions-key-vault-purge-operator",

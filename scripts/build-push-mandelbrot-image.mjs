@@ -147,7 +147,32 @@ function login(targetCloud, imageRepository) {
   }
 
   const registryName = imageRepository.split(".")[0];
-  run("az", ["acr", "login", "--name", registryName]);
+  const username = runCapture("az", [
+    "acr",
+    "credential",
+    "show",
+    "--name",
+    registryName,
+    "--query",
+    "username",
+    "--output",
+    "tsv",
+  ]);
+  const password = runCapture("az", [
+    "acr",
+    "credential",
+    "show",
+    "--name",
+    registryName,
+    "--query",
+    "passwords[0].value",
+    "--output",
+    "tsv",
+  ]);
+
+  run("docker", ["login", "--username", username, "--password-stdin", imageRepository.split("/")[0]], {
+    input: password,
+  });
 }
 
 function registryExists(targetCloud, imageRepository) {
