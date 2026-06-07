@@ -83,8 +83,8 @@ The bootstrap stack creates the GitHub Actions OIDC identities used by CI and de
 - AWS IAM OIDC provider and GitHub Actions role
 - GCP Workload Identity Federation provider and service account with project
   roles for cluster, secret, service usage, and Artifact Registry operations
-- Azure user-assigned managed identity, federated credentials, Contributor,
-  User Access Administrator, and Key Vault purge role assignments
+- Azure user-assigned managed identity, federated credentials, Contributor, and
+  Key Vault purge role assignments
 
 AWS allows only one IAM OIDC provider per issuer URL in an account. If another
 project already created the GitHub Actions provider, keep
@@ -92,6 +92,8 @@ project already created the GitHub Actions provider, keep
 bootstrap stack will look up `https://token.actions.githubusercontent.com` and
 create only the Trinity-specific IAM role. If lookup by URL is not enough, set
 `trinity:awsGithubOidcProviderArn` to the existing provider ARN.
+If you use a named local AWS profile for bootstrap, set
+`trinity:awsProfile` in `infra/pulumi/bootstrap`.
 
 Run it once locally with cloud-admin credentials:
 
@@ -101,8 +103,9 @@ npm run up:bootstrap
 ```
 
 Run bootstrap again whenever CI/CD cloud permissions change. The cluster stacks
-expect the GitHub identities to create provider registries and, for Azure, to
-assign `AcrPull` to the AKS kubelet identity.
+expect the GitHub identities to create provider registries. Azure uses an ACR
+admin-backed Kubernetes image pull secret instead of an AKS `AcrPull` role
+assignment, so deploy does not need `Microsoft.Authorization/roleAssignments/write`.
 
 Then copy these stack outputs into both GitHub environments, `ci-pr-approval` and `infra-deploy-approval`, as environment variables:
 
@@ -200,7 +203,9 @@ Each cloud stack creates the registry used by its cluster:
 
 - AWS: ECR repository `trinity-dev-aws-mandelbrot`
 - GCP: Artifact Registry Docker repository `trinity-dev-gcp-mandelbrot`
-- Azure: ACR registry `trinitydevazureacr` by default, image `mandelbrot`
+- Azure: ACR registry `trinitydevazureacr` by default, image `mandelbrot`, with
+  a Pulumi-managed `mandelbrot-registry` image pull secret in the Kubernetes
+  namespace
 
 Pulumi creates the cloud-specific Argo CD `trinity-mandelbrot-<cloud>`
 Application and injects the exact image reference through
