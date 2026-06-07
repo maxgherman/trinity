@@ -5,7 +5,7 @@ resources:
 images:
   - name: mandelbrot
     newName: trinitydevazureacr.azurecr.io/mandelbrot
-    newTag: sha-7402835a5f8e272372444f14417234b60600f04b
+    newTag: sha-859ad1f7e36ffb2f0603b80dcd1c5f075e1c95cc
 patches:
   - target:
       kind: Rollout
