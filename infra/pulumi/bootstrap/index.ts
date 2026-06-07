@@ -252,6 +252,22 @@ new azure.authorization.RoleAssignment("trinity-github-actions-contributor", {
 });
 
 new azure.authorization.RoleAssignment(
+  "trinity-github-actions-rbac-administrator",
+  {
+    scope: azureSubscriptionScope,
+    roleAssignmentName: uuidFromString(
+      `trinity-github-actions-rbac-administrator:${repoSlug}`,
+    ),
+    roleDefinitionId: azureSubscriptionScope.apply(
+      (scope) =>
+        `${scope}/providers/Microsoft.Authorization/roleDefinitions/f58310d9-a9f6-439a-9e8d-f62e7b41a168`,
+    ),
+    principalId: azureGithubActionsIdentity.principalId,
+    principalType: azure.authorization.PrincipalType.ServicePrincipal,
+  },
+);
+
+new azure.authorization.RoleAssignment(
   "trinity-github-actions-key-vault-purge-operator",
   {
     scope: azureSubscriptionScope,

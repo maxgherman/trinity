@@ -83,8 +83,8 @@ The bootstrap stack creates the GitHub Actions OIDC identities used by CI and de
 - AWS IAM OIDC provider and GitHub Actions role
 - GCP Workload Identity Federation provider and service account with project
   roles for cluster, secret, service usage, and Artifact Registry operations
-- Azure user-assigned managed identity, federated credentials, Contributor, and
-  Key Vault purge role assignments
+- Azure user-assigned managed identity, federated credentials, Contributor,
+  Role Based Access Control Administrator, and Key Vault purge role assignments
 
 AWS allows only one IAM OIDC provider per issuer URL in an account. If another
 project already created the GitHub Actions provider, keep
@@ -103,9 +103,9 @@ npm run up:bootstrap
 ```
 
 Run bootstrap again whenever CI/CD cloud permissions change. The cluster stacks
-expect the GitHub identities to create provider registries. Azure uses an ACR
-admin-backed Kubernetes image pull secret instead of an AKS `AcrPull` role
-assignment, so deploy does not need `Microsoft.Authorization/roleAssignments/write`.
+expect the GitHub identities to create provider registries and provider IAM
+bindings. Azure deploy assigns `AcrPull` to the AKS kubelet identity, so the
+GitHub Azure identity needs permission to create Azure RBAC role assignments.
 
 Then copy these stack outputs into both GitHub environments, `ci-pr-approval` and `infra-deploy-approval`, as environment variables:
 
@@ -206,8 +206,7 @@ Each cloud stack creates the registry used by its cluster:
 - AWS: ECR repository `trinity-dev-aws-mandelbrot`
 - GCP: Artifact Registry Docker repository `trinity-dev-gcp-mandelbrot`
 - Azure: ACR registry `trinitydevazureacr` by default, image `mandelbrot`, with
-  a Pulumi-managed `mandelbrot-registry` image pull secret in the Kubernetes
-  namespace
+  `AcrPull` assigned to the AKS kubelet identity
 
 The checked-in Mandelbrot overlays own the release image references through
 Kustomize `images`. Pulumi owns the registries, cluster pull permissions, Argo
