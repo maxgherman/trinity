@@ -262,12 +262,13 @@ The root Argo CD application reconciles:
 
 - the `trinity` Argo CD project
 - the cloud-specific Argo Rollouts controller application
+- the cloud-specific `mandelbrot` application
 - the `mandelbrot` rollout and runtime ConfigMaps
 - the cloud-specific observability, secrets, and policy applications
 
-Pulumi creates the cloud-specific `mandelbrot` Argo CD application separately
-because the image registry URL is a cloud output, especially for AWS ECR where
-the account ID is part of the image name.
+Pulumi patches the cloud-specific `mandelbrot` Argo CD application with the
+provider registry image reference because the image registry URL is a cloud
+output, especially for AWS ECR where the account ID is part of the image name.
 
 Pulumi owns the Mandelbrot namespace and public service because the service
 needs cloud-specific static address bindings. Destroying the cloud stack also
