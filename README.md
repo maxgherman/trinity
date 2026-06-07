@@ -161,7 +161,9 @@ It does not build or release the Mandelbrot application image.
 `Mandelbrot Deploy` runs after Mandelbrot app changes are merged to `main`, or
 manually from GitHub Actions. It builds and pushes `sha-<sha>` images to AWS,
 GCP, and Azure, then commits the resulting cloud-specific image references into
-the Mandelbrot Kustomize overlays. Argo CD deploys the app from that Git change.
+the Mandelbrot Kustomize overlays on a generated release branch. The workflow
+opens a release PR and enables auto-merge; after repository checks and branch
+rules pass, Argo CD deploys the app from the merged Git change.
 
 `Mandelbrot Rollout` is the operator workflow for progressive delivery. It is
 also gated by `infra-deploy-approval`, authenticates to the selected cloud
