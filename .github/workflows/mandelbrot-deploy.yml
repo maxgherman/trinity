@@ -18,6 +18,7 @@ on:
 permissions:
   contents: write
   id-token: write
+  pull-requests: write
 
 concurrency:
   group: mandelbrot-deploy
@@ -150,7 +151,11 @@ jobs:
           kubectl kustomize apps/mandelbrot/overlays/gcp >/tmp/mandelbrot-gcp.yaml
           kubectl kustomize apps/mandelbrot/overlays/azure >/tmp/mandelbrot-azure.yaml
 
-      - name: Commit image tag update
+      - name: Open image tag update PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: mandelbrot/deploy-${{ github.sha }}
+          RELEASE_TITLE: Deploy Mandelbrot ${{ env.MANDELBROT_IMAGE_TAG }}
         run: |
           if git diff --quiet -- apps/mandelbrot/overlays; then
             echo "Mandelbrot overlays already reference ${MANDELBROT_IMAGE_TAG}."
@@ -159,7 +164,25 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "${RELEASE_BRANCH}"
           git add apps/mandelbrot/overlays
           git commit -m "Deploy Mandelbrot ${MANDELBROT_IMAGE_TAG}"
-          git pull --rebase origin "${GITHUB_REF_NAME}"
-          git push
+          git push --force-with-lease origin "HEAD:${RELEASE_BRANCH}"
+
+          existing_pr="$(gh pr list \
+            --head "${RELEASE_BRANCH}" \
+            --base "${GITHUB_REF_NAME}" \
+            --json number \
+            --jq '.[0].number')"
+
+          if [ -n "${existing_pr}" ]; then
+            gh pr edit "${existing_pr}" \
+              --title "${RELEASE_TITLE}" \
+              --body "Updates the Mandelbrot GitOps overlays to ${MANDELBROT_IMAGE_TAG} after the image was pushed to AWS, GCP, and Azure."
+          else
+            gh pr create \
+              --base "${GITHUB_REF_NAME}" \
+              --head "${RELEASE_BRANCH}" \
+              --title "${RELEASE_TITLE}" \
+              --body "Updates the Mandelbrot GitOps overlays to ${MANDELBROT_IMAGE_TAG} after the image was pushed to AWS, GCP, and Azure."
+          fi
