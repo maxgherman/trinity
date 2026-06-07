@@ -25,6 +25,7 @@ const awsManagedPolicyArns = trinityConfig.getObject<string[]>(
   "awsManagedPolicyArns",
 ) ?? ["arn:aws:iam::aws:policy/AdministratorAccess"];
 const gcpProjectRoles = trinityConfig.getObject<string[]>("gcpProjectRoles") ?? [
+  "roles/artifactregistry.admin",
   "roles/container.admin",
   "roles/compute.admin",
   "roles/iam.serviceAccountAdmin",
@@ -247,6 +248,22 @@ new azure.authorization.RoleAssignment("trinity-github-actions-contributor", {
   principalId: azureGithubActionsIdentity.principalId,
   principalType: azure.authorization.PrincipalType.ServicePrincipal,
 });
+
+new azure.authorization.RoleAssignment(
+  "trinity-github-actions-user-access-administrator",
+  {
+    scope: azureSubscriptionScope,
+    roleAssignmentName: uuidFromString(
+      `trinity-github-actions-user-access-administrator:${repoSlug}`,
+    ),
+    roleDefinitionId: azureSubscriptionScope.apply(
+      (scope) =>
+        `${scope}/providers/Microsoft.Authorization/roleDefinitions/f1a07417-d97a-45cb-824c-7a7467783830`,
+    ),
+    principalId: azureGithubActionsIdentity.principalId,
+    principalType: azure.authorization.PrincipalType.ServicePrincipal,
+  },
+);
 
 new azure.authorization.RoleAssignment(
   "trinity-github-actions-key-vault-purge-operator",

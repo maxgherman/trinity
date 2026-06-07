@@ -81,8 +81,10 @@ baseline policy set to Trinity workload namespaces.
 The bootstrap stack creates the GitHub Actions OIDC identities used by CI and deployment:
 
 - AWS IAM OIDC provider and GitHub Actions role
-- GCP Workload Identity Federation provider and service account
-- Azure user-assigned managed identity, federated credentials, and role assignment
+- GCP Workload Identity Federation provider and service account with project
+  roles for cluster, secret, service usage, and Artifact Registry operations
+- Azure user-assigned managed identity, federated credentials, Contributor,
+  User Access Administrator, and Key Vault purge role assignments
 
 AWS allows only one IAM OIDC provider per issuer URL in an account. If another
 project already created the GitHub Actions provider, keep
@@ -97,6 +99,10 @@ Run it once locally with cloud-admin credentials:
 npm run preview:bootstrap
 npm run up:bootstrap
 ```
+
+Run bootstrap again whenever CI/CD cloud permissions change. The cluster stacks
+expect the GitHub identities to create provider registries and, for Azure, to
+assign `AcrPull` to the AKS kubelet identity.
 
 Then copy these stack outputs into both GitHub environments, `ci-pr-approval` and `infra-deploy-approval`, as environment variables:
 
