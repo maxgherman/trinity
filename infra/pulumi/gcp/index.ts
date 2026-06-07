@@ -44,6 +44,16 @@ const projectInfo = gcp.organizations.getProjectOutput(
   { provider },
 );
 
+const artifactRegistryService = new gcp.projects.Service(
+  `${clusterName}-artifact-registry-api`,
+  {
+    project,
+    service: "artifactregistry.googleapis.com",
+    disableOnDestroy: false,
+  },
+  { provider },
+);
+
 const mandelbrotRepository = new gcp.artifactregistry.Repository(
   mandelbrotRepositoryId,
   {
@@ -57,7 +67,7 @@ const mandelbrotRepository = new gcp.artifactregistry.Repository(
       component: "mandelbrot",
     },
   },
-  { provider },
+  { provider, dependsOn: [artifactRegistryService] },
 );
 
 new gcp.artifactregistry.RepositoryIamMember(
