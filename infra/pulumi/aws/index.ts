@@ -22,7 +22,6 @@ const {
   kubernetesVersion,
   gitRepositoryUrl,
   gitRevision,
-  mandelbrotImageTag,
 } = getTrinityConfig();
 const trinityConfig = new pulumi.Config("trinity");
 const awsProfile = trinityConfig.get("awsProfile");
@@ -340,8 +339,6 @@ new aws.ecr.LifecyclePolicy(
   { provider },
 );
 
-const mandelbrotImage = pulumi.interpolate`${mandelbrotRepository.repositoryUrl}:${mandelbrotImageTag}`;
-
 const mandelbrotElasticIps = [0, 1].map(
   (index) =>
     new aws.ec2.Eip(
@@ -387,7 +384,6 @@ const argocd = bootstrapArgoCd({
   provider: k8sProvider,
   repositoryUrl: gitRepositoryUrl,
   revision: gitRevision,
-  mandelbrotImage,
   dependsOn: [cluster, nodeGroup, externalSecretsServiceAccount.serviceAccount],
 });
 
@@ -404,7 +400,6 @@ export const mandelbrotOriginHost = mandelbrotOriginHosts.apply(
 );
 export const mandelbrotStageUrl = pulumi.interpolate`http://${mandelbrotOriginHost}`;
 export const mandelbrotRepositoryUrl = mandelbrotRepository.repositoryUrl;
-export const mandelbrotImageName = mandelbrotImage;
 export const externalSecretsAwsRoleArn = externalSecretsRole.arn;
 export {
   secretsDemoAwsSecretName,

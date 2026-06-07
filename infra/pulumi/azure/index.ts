@@ -27,7 +27,6 @@ const {
   kubernetesVersion,
   gitRepositoryUrl,
   gitRevision,
-  mandelbrotImageTag,
 } = getTrinityConfig();
 
 const resourceGroupName = resourceName("azure", environment, "rg");
@@ -137,8 +136,6 @@ const kubeconfig = credentials.kubeconfigs.apply((kubeconfigs) =>
 const k8sProvider = new k8s.Provider(`${clusterName}-k8s-provider`, {
   kubeconfig,
 });
-
-const mandelbrotImage = pulumi.interpolate`${containerRegistry.loginServer}/mandelbrot:${mandelbrotImageTag}`;
 
 const externalSecretsIdentity = new managedidentity.UserAssignedIdentity(
   `${clusterName}-external-secrets`,
@@ -287,7 +284,6 @@ const argocd = bootstrapArgoCd({
   provider: k8sProvider,
   repositoryUrl: gitRepositoryUrl,
   revision: gitRevision,
-  mandelbrotImage,
   dependsOn: [
     cluster,
     externalSecretsServiceAccount.serviceAccount,
@@ -303,7 +299,6 @@ export const mandelbrotServiceName = mandelbrotService.serviceName;
 export const mandelbrotOriginHost = mandelbrotPublicIp.ipAddress;
 export const mandelbrotStageUrl = pulumi.interpolate`http://${mandelbrotPublicIp.ipAddress}`;
 export const mandelbrotRepositoryUrl = pulumi.interpolate`${containerRegistry.loginServer}/mandelbrot`;
-export const mandelbrotImageName = mandelbrotImage;
 export const externalSecretsAzureClientId = externalSecretsIdentity.clientId;
 export const secretsDemoAzureKeyVaultName = keyVaultName;
 export const secretsDemoAzureKeyVaultUrl = `https://${keyVaultName}.vault.azure.net`;

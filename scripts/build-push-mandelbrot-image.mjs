@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
 
 const args = parseArgs(process.argv.slice(2));
 const cloud = requireOption(args.cloud, "--cloud");
@@ -47,12 +48,22 @@ for (const imageTag of imageTags) {
   run("docker", ["push", imageTag]);
 }
 
+if (args.metadataFile) {
+  writeMetadata(args.metadataFile, {
+    cloud,
+    repository: imageRepository,
+    tags,
+    images: imageTags,
+  });
+}
+
 console.log(`Pushed ${imageTags.join(", ")}`);
 
 function parseArgs(argv) {
   const parsed = {
     cloud: "",
     tag: [],
+    metadataFile: "",
     skipIfMissing: false,
   };
 
@@ -65,6 +76,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === "--tag") {
       parsed.tag.push(requireValue(arg, value));
+      index += 1;
+    } else if (arg === "--metadata-file") {
+      parsed.metadataFile = requireValue(arg, value);
       index += 1;
     } else if (arg === "--skip-if-missing") {
       parsed.skipIfMissing = true;
@@ -263,4 +277,8 @@ function runCapture(command, commandArgs) {
   }
 
   return result.stdout.trim();
+}
+
+function writeMetadata(path, metadata) {
+  writeFileSync(`${path}`, `${JSON.stringify(metadata, null, 2)}\n`);
 }

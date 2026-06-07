@@ -150,16 +150,18 @@ steps live in [docs/runbook.md](docs/runbook.md).
 
 CI runs on pull requests and is gated by the `ci-pr-approval` environment. After approval it validates TypeScript, validates Kubernetes manifests, renders Kustomize overlays, and runs `pulumi preview` for AWS, GCP, Azure, and the traffic stack.
 For the three cluster stacks, CI also builds the Mandelbrot image and pushes it
-to the matching provider registry with a `pr-<number>-<sha>` tag before running
-`pulumi preview` with that image tag.
+to the matching provider registry with a `pr-<number>-<sha>` tag.
 On the first PR that introduces the registries, the push step builds the image
 but skips the push if the registry does not exist yet. After the cluster stacks
 have created the registries, PR builds push normally.
 
 `Pulumi Deploy` runs after changes are merged to `main`. It is gated by the `infra-deploy-approval` environment before cloud credentials are configured or `pulumi up` runs. The workflow can also be manually triggered from GitHub Actions to run `up` or `destroy` for `aws`, `gcp`, `azure`, `traffic`, or `all`. For `all`, the workflow deploys the cluster stacks before the traffic stack and destroys the traffic stack before the cluster stacks.
-For cluster `up` operations, deploy points the Argo CD Mandelbrot application at
-`sha-<sha>` and pushes that same image tag to the cloud registry after the stack
-update has created or verified the registry.
+It does not build or release the Mandelbrot application image.
+
+`Mandelbrot Deploy` runs after Mandelbrot app changes are merged to `main`, or
+manually from GitHub Actions. It builds and pushes `sha-<sha>` images to AWS,
+GCP, and Azure, then commits the resulting cloud-specific image references into
+the Mandelbrot Kustomize overlays. Argo CD deploys the app from that Git change.
 
 `Mandelbrot Rollout` is the operator workflow for progressive delivery. It is
 also gated by `infra-deploy-approval`, authenticates to the selected cloud
@@ -207,15 +209,13 @@ Each cloud stack creates the registry used by its cluster:
   a Pulumi-managed `mandelbrot-registry` image pull secret in the Kubernetes
   namespace
 
-Pulumi creates the cloud-specific Argo CD `trinity-mandelbrot-<cloud>`
-Application and injects the exact image reference through
-`spec.source.kustomize.images`. The checked-in Mandelbrot overlay stays generic
-with `image: mandelbrot:dev`.
+The checked-in Mandelbrot overlays own the release image references through
+Kustomize `images`. Pulumi owns the registries, cluster pull permissions, Argo
+CD, and the static public service, but not the application release tag.
 
-The selected tag comes from `MANDELBROT_IMAGE_TAG`, then
-`trinity:mandelbrotImageTag`, then `dev`. GitHub Actions sets the environment
-variable so pull requests use immutable PR tags and main deploys use immutable
-SHA tags. Local Pulumi runs keep using `dev` unless you override either value.
+Pull requests use immutable PR tags for image validation. Main app deploys use
+immutable `sha-<sha>` tags and update the GitOps overlays after all three cloud
+pushes succeed.
 
 ## Preview
 
@@ -265,10 +265,6 @@ The root Argo CD application reconciles:
 - the cloud-specific `mandelbrot` application
 - the `mandelbrot` rollout and runtime ConfigMaps
 - the cloud-specific observability, secrets, and policy applications
-
-Pulumi patches the cloud-specific `mandelbrot` Argo CD application with the
-provider registry image reference because the image registry URL is a cloud
-output, especially for AWS ECR where the account ID is part of the image name.
 
 Pulumi owns the Mandelbrot namespace and public service because the service
 needs cloud-specific static address bindings. Destroying the cloud stack also
