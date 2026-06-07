@@ -57,6 +57,9 @@ job splits one Mandelbrot image into horizontal tiles, asks each cloud stage to
 compute one tile, then stitches the tiles back together in the browser. Until
 the traffic stack writes the per-cluster stage URLs, missing remote stage URLs
 fall back to local rendering so the app remains deployable during bootstrap.
+The app is packaged as a Docker image from `apps/mandelbrot/Dockerfile`; the
+image contains the Node.js server and browser UI rather than mounting source
+from a ConfigMap.
 
 The observability slice runs Prometheus, Grafana, Loki, Promtail, and Jaeger in
 each cluster. Prometheus scrapes the Mandelbrot `/metrics` endpoint, Promtail
@@ -137,8 +140,17 @@ steps live in [docs/runbook.md](docs/runbook.md).
 ## GitHub Actions
 
 CI runs on pull requests and is gated by the `ci-pr-approval` environment. After approval it validates TypeScript, validates Kubernetes manifests, renders Kustomize overlays, and runs `pulumi preview` for AWS, GCP, Azure, and the traffic stack.
+For the three cluster stacks, CI also builds the Mandelbrot image and pushes it
+to the matching provider registry with a `pr-<number>-<sha>` tag before running
+`pulumi preview` with that image tag.
+On the first PR that introduces the registries, the push step builds the image
+but skips the push if the registry does not exist yet. After the cluster stacks
+have created the registries, PR builds push normally.
 
 `Pulumi Deploy` runs after changes are merged to `main`. It is gated by the `infra-deploy-approval` environment before cloud credentials are configured or `pulumi up` runs. The workflow can also be manually triggered from GitHub Actions to run `up` or `destroy` for `aws`, `gcp`, `azure`, `traffic`, or `all`. For `all`, the workflow deploys the cluster stacks before the traffic stack and destroys the traffic stack before the cluster stacks.
+For cluster `up` operations, deploy points the Argo CD Mandelbrot application at
+`sha-<sha>` and pushes that same image tag to the cloud registry after the stack
+update has created or verified the registry.
 
 `Mandelbrot Rollout` is the operator workflow for progressive delivery. It is
 also gated by `infra-deploy-approval`, authenticates to the selected cloud
@@ -171,6 +183,28 @@ The GCP jobs also install `gke-gcloud-auth-plugin` because the generated GKE
 kubeconfig uses that helper when Pulumi creates or destroys Kubernetes
 resources. The traffic jobs authenticate to all three clouds because the traffic
 stack writes stage URL ConfigMaps into all three clusters.
+
+If `trinity:containerRegistryName` is set on the Azure stack, set the matching
+`AZURE_CONTAINER_REGISTRY` GitHub environment variable. Otherwise the workflows
+use the default `trinitydevazureacr` registry name.
+
+## Container Images
+
+Each cloud stack creates the registry used by its cluster:
+
+- AWS: ECR repository `trinity-dev-aws-mandelbrot`
+- GCP: Artifact Registry Docker repository `trinity-dev-gcp-mandelbrot`
+- Azure: ACR registry `trinitydevazureacr` by default, image `mandelbrot`
+
+Pulumi creates the cloud-specific Argo CD `trinity-mandelbrot-<cloud>`
+Application and injects the exact image reference through
+`spec.source.kustomize.images`. The checked-in Mandelbrot overlay stays generic
+with `image: mandelbrot:dev`.
+
+The selected tag comes from `MANDELBROT_IMAGE_TAG`, then
+`trinity:mandelbrotImageTag`, then `dev`. GitHub Actions sets the environment
+variable so pull requests use immutable PR tags and main deploys use immutable
+SHA tags. Local Pulumi runs keep using `dev` unless you override either value.
 
 ## Preview
 
@@ -217,9 +251,12 @@ The root Argo CD application reconciles:
 
 - the `trinity` Argo CD project
 - the cloud-specific Argo Rollouts controller application
-- the cloud-specific `mandelbrot` application
 - the `mandelbrot` rollout and runtime ConfigMaps
 - the cloud-specific observability, secrets, and policy applications
+
+Pulumi creates the cloud-specific `mandelbrot` Argo CD application separately
+because the image registry URL is a cloud output, especially for AWS ECR where
+the account ID is part of the image name.
 
 Pulumi owns the Mandelbrot namespace and public service because the service
 needs cloud-specific static address bindings. Destroying the cloud stack also

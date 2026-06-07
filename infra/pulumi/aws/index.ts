@@ -22,6 +22,7 @@ const {
   kubernetesVersion,
   gitRepositoryUrl,
   gitRevision,
+  mandelbrotImageTag,
 } = getTrinityConfig();
 const trinityConfig = new pulumi.Config("trinity");
 const awsProfile = trinityConfig.get("awsProfile");
@@ -297,6 +298,50 @@ const externalSecretsServiceAccount = createExternalSecretsServiceAccount({
   dependsOn: [nodeGroup],
 });
 
+const mandelbrotRepository = new aws.ecr.Repository(
+  `${clusterName}-mandelbrot`,
+  {
+    name: resourceName("aws", environment, "mandelbrot"),
+    imageTagMutability: "MUTABLE",
+    imageScanningConfiguration: {
+      scanOnPush: true,
+    },
+    forceDelete: true,
+    tags: {
+      ...labels,
+      component: "mandelbrot",
+    },
+  },
+  { provider },
+);
+
+new aws.ecr.LifecyclePolicy(
+  `${clusterName}-mandelbrot-lifecycle`,
+  {
+    repository: mandelbrotRepository.name,
+    policy: JSON.stringify({
+      rules: [
+        {
+          rulePriority: 1,
+          description: "Keep the last 30 PR images.",
+          selection: {
+            tagStatus: "tagged",
+            tagPrefixList: ["pr-"],
+            countType: "imageCountMoreThan",
+            countNumber: 30,
+          },
+          action: {
+            type: "expire",
+          },
+        },
+      ],
+    }),
+  },
+  { provider },
+);
+
+const mandelbrotImage = pulumi.interpolate`${mandelbrotRepository.repositoryUrl}:${mandelbrotImageTag}`;
+
 const mandelbrotElasticIps = [0, 1].map(
   (index) =>
     new aws.ec2.Eip(
@@ -342,6 +387,7 @@ const argocd = bootstrapArgoCd({
   provider: k8sProvider,
   repositoryUrl: gitRepositoryUrl,
   revision: gitRevision,
+  mandelbrotImage,
   dependsOn: [cluster, nodeGroup, externalSecretsServiceAccount.serviceAccount],
 });
 
@@ -357,6 +403,8 @@ export const mandelbrotOriginHost = mandelbrotOriginHosts.apply(
   ([primaryHost]) => primaryHost,
 );
 export const mandelbrotStageUrl = pulumi.interpolate`http://${mandelbrotOriginHost}`;
+export const mandelbrotRepositoryUrl = mandelbrotRepository.repositoryUrl;
+export const mandelbrotImageName = mandelbrotImage;
 export const externalSecretsAwsRoleArn = externalSecretsRole.arn;
 export {
   secretsDemoAwsSecretName,

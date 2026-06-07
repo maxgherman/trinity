@@ -6,6 +6,7 @@ export interface TrinityConfig {
   kubernetesVersion: string;
   gitRepositoryUrl: string;
   gitRevision: string;
+  mandelbrotImageTag: string;
 }
 
 export function getTrinityConfig(): TrinityConfig {
@@ -18,5 +19,9 @@ export function getTrinityConfig(): TrinityConfig {
     gitRepositoryUrl:
       config.get("gitRepositoryUrl") ?? "https://github.com/maxgherman/trinity.git",
     gitRevision: config.get("gitRevision") ?? "main",
+    mandelbrotImageTag:
+      process.env.MANDELBROT_IMAGE_TAG ??
+      config.get("mandelbrotImageTag") ??
+      "dev",
   };
 }

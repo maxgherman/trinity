@@ -115,8 +115,16 @@ Check direct cluster state:
 for cloud in aws gcp azure; do
   echo "== ${cloud} Mandelbrot =="
   KUBECONFIG=./kubeconfig.${cloud}.yaml kubectl -n mandelbrot get rollout,pods,service,configmap
+  KUBECONFIG=./kubeconfig.${cloud}.yaml kubectl -n mandelbrot get rollout mandelbrot \
+    -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
 done
 ```
+
+Expected image registries:
+
+- AWS: `<account-id>.dkr.ecr.us-east-1.amazonaws.com/trinity-dev-aws-mandelbrot:<tag>`
+- GCP: `us-central1-docker.pkg.dev/trinity-k8s/trinity-dev-gcp-mandelbrot/mandelbrot:<tag>`
+- Azure: `trinitydevazureacr.azurecr.io/mandelbrot:<tag>` unless the registry name was overridden
 
 Check direct origins:
 

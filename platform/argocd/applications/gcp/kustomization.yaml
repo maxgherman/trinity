@@ -2,7 +2,6 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - rollouts.yaml
-  - mandelbrot.yaml
   - secrets.yaml
   - secrets-demo.yaml
   - observability.yaml

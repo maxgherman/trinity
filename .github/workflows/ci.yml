@@ -19,6 +19,13 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: ci-pr-approval
+    env:
+      TRINITY_ENVIRONMENT: dev
+      AWS_REGION: us-east-1
+      GCP_PROJECT: trinity-k8s
+      GCP_REGION: us-central1
+      AZURE_CONTAINER_REGISTRY: ${{ vars.AZURE_CONTAINER_REGISTRY || 'trinitydevazureacr' }}
+      MANDELBROT_IMAGE_TAG: ${{ github.event_name == 'pull_request' && format('pr-{0}-{1}', github.event.pull_request.number, github.sha) || format('manual-{0}-{1}', github.run_id, github.sha) }}
 
     strategy:
       fail-fast: false
@@ -112,6 +119,10 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Build and push Mandelbrot image
+        if: matrix.cloud != 'traffic'
+        run: npm run push:mandelbrot-image -- --cloud "${{ matrix.cloud }}" --tag "${MANDELBROT_IMAGE_TAG}" --skip-if-missing
+
       - name: Pulumi preview
         uses: pulumi/actions@v6
         with:
@@ -124,3 +135,4 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           AWS_CLUSTER_ADMIN_PRINCIPAL_ARN: ${{ vars.AWS_CLUSTER_ADMIN_PRINCIPAL_ARN }}
+          MANDELBROT_IMAGE_TAG: ${{ env.MANDELBROT_IMAGE_TAG }}

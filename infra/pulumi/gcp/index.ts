@@ -21,6 +21,7 @@ const {
   kubernetesVersion,
   gitRepositoryUrl,
   gitRevision,
+  mandelbrotImageTag,
 } = getTrinityConfig();
 const gcpConfig = new pulumi.Config("gcp");
 const project = gcpConfig.require("project");
@@ -33,9 +34,48 @@ const provider = new gcp.Provider("gcp-provider", {
 const clusterName = resourceName("gcp", environment, "cluster");
 const nodePoolName = resourceName("gcp", environment, "nodepool");
 const mandelbrotAddressName = resourceName("gcp", environment, "mandelbrot");
+const mandelbrotRepositoryId = resourceName("gcp", environment, "mandelbrot");
 const externalSecretsServiceAccountId = `trinity-${environment}-eso`;
 const labels = commonLabels("gcp", environment);
 const nodeLocations = region === "us-central1" ? ["us-central1-a"] : undefined;
+
+const projectInfo = gcp.organizations.getProjectOutput(
+  { projectId: project },
+  { provider },
+);
+
+const mandelbrotRepository = new gcp.artifactregistry.Repository(
+  mandelbrotRepositoryId,
+  {
+    repositoryId: mandelbrotRepositoryId,
+    location: region,
+    project,
+    format: "DOCKER",
+    description: "Docker images for the Trinity Mandelbrot workload.",
+    labels: {
+      ...labels,
+      component: "mandelbrot",
+    },
+  },
+  { provider },
+);
+
+new gcp.artifactregistry.RepositoryIamMember(
+  `${mandelbrotRepositoryId}-node-reader`,
+  {
+    project,
+    location: region,
+    repository: mandelbrotRepository.repositoryId,
+    role: "roles/artifactregistry.reader",
+    member: projectInfo.number.apply(
+      (projectNumber) =>
+        `serviceAccount:${projectNumber}-compute@developer.gserviceaccount.com`,
+    ),
+  },
+  { provider },
+);
+
+const mandelbrotImage = pulumi.interpolate`${region}-docker.pkg.dev/${project}/${mandelbrotRepository.repositoryId}/mandelbrot:${mandelbrotImageTag}`;
 
 const mandelbrotAddress = new gcp.compute.Address(
   mandelbrotAddressName,
@@ -215,6 +255,7 @@ const argocd = bootstrapArgoCd({
   provider: k8sProvider,
   repositoryUrl: gitRepositoryUrl,
   revision: gitRevision,
+  mandelbrotImage,
   dependsOn: [nodePool, externalSecretsServiceAccount.serviceAccount],
 });
 
@@ -225,6 +266,8 @@ export const mandelbrotNamespace = mandelbrotService.namespace;
 export const mandelbrotServiceName = mandelbrotService.serviceName;
 export const mandelbrotOriginHost = mandelbrotAddress.address;
 export const mandelbrotStageUrl = pulumi.interpolate`http://${mandelbrotAddress.address}`;
+export const mandelbrotRepositoryUrl = pulumi.interpolate`${region}-docker.pkg.dev/${project}/${mandelbrotRepository.repositoryId}`;
+export const mandelbrotImageName = mandelbrotImage;
 export const externalSecretsGcpServiceAccountEmail =
   externalSecretsGoogleServiceAccount.email;
 export {
