@@ -1,3 +1,4 @@
+import * as crypto from "node:crypto";
 import * as authorization from "@pulumi/azure-native/authorization";
 import * as containerservice from "@pulumi/azure-native/containerservice";
 import * as keyvault from "@pulumi/azure-native/keyvault";
@@ -43,6 +44,13 @@ const keyVaultResourceGroupName =
   resourceName("azure", environment, "secrets-rg");
 const labels = commonLabels("azure", environment);
 const azureClient = authorization.getClientConfigOutput();
+const azureSubscriptionScope = azureClient.subscriptionId.apply(
+  (subscriptionId) => `/subscriptions/${subscriptionId}`,
+);
+const acrPullRoleDefinitionId = azureSubscriptionScope.apply(
+  (scope) =>
+    `${scope}/providers/Microsoft.Authorization/roleDefinitions/7f951dda-4ed3-4680-a7ca-43fe172d538d`,
+);
 
 const resourceGroup = new resources.ResourceGroup(resourceGroupName, {
   resourceGroupName,
@@ -59,7 +67,7 @@ const containerRegistry = new containerregistry.Registry(
     sku: {
       name: containerregistry.SkuName.Basic,
     },
-    adminUserEnabled: true,
+    adminUserEnabled: false,
     tags: {
       ...labels,
       component: "mandelbrot",
@@ -136,6 +144,31 @@ const kubeconfig = credentials.kubeconfigs.apply((kubeconfigs) =>
 const k8sProvider = new k8s.Provider(`${clusterName}-k8s-provider`, {
   kubeconfig,
 });
+
+const kubeletIdentityObjectId = cluster.identityProfile.apply((profile) => {
+  const objectId = profile?.kubeletidentity?.objectId;
+  if (!objectId) {
+    throw new Error("AKS cluster did not report a kubelet identity object ID.");
+  }
+
+  return objectId;
+});
+
+const mandelbrotAcrPullRoleAssignment = new authorization.RoleAssignment(
+  `${clusterName}-mandelbrot-acr-pull`,
+  {
+    scope: containerRegistry.id,
+    roleAssignmentName: pulumi
+      .all([containerRegistry.id, kubeletIdentityObjectId])
+      .apply(([registryId, objectId]) =>
+        uuidFromString(`${registryId}:AcrPull:${objectId}`),
+      ),
+    roleDefinitionId: acrPullRoleDefinitionId,
+    principalId: kubeletIdentityObjectId,
+    principalType: authorization.PrincipalType.ServicePrincipal,
+  },
+  { dependsOn: [cluster, containerRegistry] },
+);
 
 const externalSecretsIdentity = new managedidentity.UserAssignedIdentity(
   `${clusterName}-external-secrets`,
@@ -223,61 +256,6 @@ const mandelbrotService = deployMandelbrotService({
   dependsOn: [cluster, mandelbrotPublicIp],
 });
 
-const containerRegistryCredentials =
-  containerregistry.listRegistryCredentialsOutput({
-    registryName: containerRegistry.name,
-    resourceGroupName: resourceGroup.name,
-  });
-
-const containerRegistryPassword = containerRegistryCredentials.apply(
-  (credentials) => {
-    const password = credentials.passwords?.[0]?.value;
-    if (!password) {
-      throw new Error("ACR did not return an admin password.");
-    }
-
-    return password;
-  },
-);
-
-const mandelbrotRegistrySecret = new k8s.core.v1.Secret(
-  `${clusterName}-mandelbrot-registry`,
-  {
-    metadata: {
-      name: "mandelbrot-registry",
-      namespace: mandelbrotService.namespace,
-      labels: {
-        ...labels,
-        "app.kubernetes.io/name": "mandelbrot",
-        "app.kubernetes.io/part-of": "trinity",
-      },
-    },
-    type: "kubernetes.io/dockerconfigjson",
-    stringData: {
-      ".dockerconfigjson": pulumi.secret(
-        pulumi
-          .all([
-            containerRegistry.loginServer,
-            containerRegistryCredentials.username,
-            containerRegistryPassword,
-          ])
-          .apply(([server, username, password]) =>
-            JSON.stringify({
-              auths: {
-                [server]: {
-                  username,
-                  password,
-                  auth: Buffer.from(`${username}:${password}`).toString("base64"),
-                },
-              },
-            }),
-          ),
-      ),
-    },
-  },
-  { provider: k8sProvider, dependsOn: [containerRegistry] },
-);
-
 const argocd = bootstrapArgoCd({
   cloud: "azure",
   environment,
@@ -286,8 +264,8 @@ const argocd = bootstrapArgoCd({
   revision: gitRevision,
   dependsOn: [
     cluster,
+    mandelbrotAcrPullRoleAssignment,
     externalSecretsServiceAccount.serviceAccount,
-    mandelbrotRegistrySecret,
   ],
 });
 
@@ -311,4 +289,17 @@ export {
 
 function trinityConfigSafeRegistryName(name: string): string {
   return name.replace(/[^A-Za-z0-9]/g, "").slice(0, 50);
+}
+
+function uuidFromString(input: string): string {
+  const hash = crypto.createHash("sha1").update(input).digest("hex");
+  return [
+    hash.slice(0, 8),
+    hash.slice(8, 12),
+    `5${hash.slice(13, 16)}`,
+    `${((Number.parseInt(hash.slice(16, 18), 16) & 0x3f) | 0x80)
+      .toString(16)
+      .padStart(2, "0")}${hash.slice(18, 20)}`,
+    hash.slice(20, 32),
+  ].join("-");
 }

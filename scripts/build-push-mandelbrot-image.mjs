@@ -160,54 +160,7 @@ function login(targetCloud, imageRepository) {
     return;
   }
 
-  const registryName = imageRepository.split(".")[0];
-  ensureAzureAdminEnabled(registryName);
-  const username = runCapture("az", [
-    "acr",
-    "credential",
-    "show",
-    "--name",
-    registryName,
-    "--query",
-    "username",
-    "--output",
-    "tsv",
-  ]);
-  const password = runCapture("az", [
-    "acr",
-    "credential",
-    "show",
-    "--name",
-    registryName,
-    "--query",
-    "passwords[0].value",
-    "--output",
-    "tsv",
-  ]);
-
-  run("docker", ["login", "--username", username, "--password-stdin", imageRepository.split("/")[0]], {
-    input: password,
-  });
-}
-
-function ensureAzureAdminEnabled(registryName) {
-  const adminEnabled = runCapture("az", [
-    "acr",
-    "show",
-    "--name",
-    registryName,
-    "--query",
-    "adminUserEnabled",
-    "--output",
-    "tsv",
-  ]);
-
-  if (adminEnabled.trim().toLowerCase() === "true") {
-    return;
-  }
-
-  console.log(`Enabling admin credentials for Azure Container Registry ${registryName}.`);
-  run("az", ["acr", "update", "--name", registryName, "--admin-enabled", "true"]);
+  run("az", ["acr", "login", "--name", imageRepository.split(".")[0]]);
 }
 
 function registryExists(targetCloud, imageRepository) {
