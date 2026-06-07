@@ -126,6 +126,11 @@ Expected image registries:
 - GCP: `us-central1-docker.pkg.dev/trinity-k8s/trinity-dev-gcp-mandelbrot/mandelbrot:<tag>`
 - Azure: `trinitydevazureacr.azurecr.io/mandelbrot:<tag>` unless the registry name was overridden
 
+Expected release tags:
+
+- PR validation images use `pr-<pr-number>-<commit-sha>`.
+- Deployed images use `sha-<commit-sha>`.
+
 Check direct origins:
 
 ```sh
@@ -151,6 +156,87 @@ done
 If stage URLs are missing, run or rerun the traffic stack. The app can still
 render locally while stage URLs are empty, but it is not proving cross-cluster
 rendering.
+
+## Mandelbrot Image Deployment
+
+Infrastructure and application deployment are intentionally separate.
+
+- `Pulumi Deploy` owns clusters, registries, Argo CD, platform add-ons, traffic,
+  and destroy.
+- `Mandelbrot Deploy` owns the Mandelbrot container image and GitOps overlay
+  image tags.
+- `Mandelbrot Rollout` owns manual Argo Rollouts operations such as sync,
+  promote, abort, undo, and restart.
+
+The normal application release path is the `Mandelbrot Deploy` GitHub Actions
+workflow. It runs on pushes to `main` that touch the app image inputs:
+
+- `.github/workflows/mandelbrot-deploy.yml`
+- `apps/mandelbrot/Dockerfile`
+- `apps/mandelbrot/.dockerignore`
+- `apps/mandelbrot/base/**`
+- `scripts/build-push-mandelbrot-image.mjs`
+- `scripts/update-mandelbrot-gitops-images.mjs`
+- `package.json`
+- `package-lock.json`
+
+It does not trigger on `apps/mandelbrot/overlays/**`. That prevents the
+workflow's own release PR from starting another image build.
+
+The workflow:
+
+1. Builds and pushes `sha-<commit-sha>` images to AWS ECR, GCP Artifact
+   Registry, and Azure ACR.
+2. Writes image metadata artifacts for each cloud.
+3. Updates `apps/mandelbrot/overlays/{aws,gcp,azure}/kustomization.yaml`.
+4. Opens or updates a branch named `mandelbrot/deploy-<commit-sha>`.
+5. Opens a PR titled `Deploy Mandelbrot sha-<commit-sha>`.
+6. Enables squash auto-merge and branch deletion for that PR.
+
+Repository branch protection requires this PR path. If the generated PR stays
+open, check required checks and confirm repository auto-merge is enabled.
+
+Argo CD then reconciles the overlay image tag from `main`. Verify it reached
+the clusters:
+
+```sh
+expected_tag="sha-<commit-sha>"
+
+for cloud in aws gcp azure; do
+  echo "== ${cloud} image =="
+  KUBECONFIG=./kubeconfig.${cloud}.yaml kubectl -n mandelbrot get rollout mandelbrot \
+    -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
+
+  echo "== ${cloud} rollout =="
+  KUBECONFIG=./kubeconfig.${cloud}.yaml kubectl -n mandelbrot get rollout,pods,service
+done
+```
+
+Each image should end with `${expected_tag}`.
+
+For local validation only, build and push one cloud image manually:
+
+```sh
+TRINITY_ENVIRONMENT=dev npm run push:mandelbrot-image -- \
+  --cloud aws \
+  --tag manual-$(git rev-parse --short HEAD)
+```
+
+Use `--cloud gcp` or `--cloud azure` as needed. This only pushes an image; it
+does not update GitOps overlays or deploy it.
+
+Azure ACR uses cloud RBAC, not registry admin credentials. The AKS kubelet
+identity must have `AcrPull` on the ACR, and ACR admin user should stay
+disabled:
+
+```sh
+az acr show \
+  --name trinitydevazureacr \
+  --query "{loginServer:loginServer,adminUserEnabled:adminUserEnabled}" \
+  -o json
+```
+
+Expected `adminUserEnabled` is `false`.
 
 ## Traffic Routing
 
@@ -191,11 +277,14 @@ az afd origin update \
 
 ## Rollout And Rollback
 
-The normal rollout path is the `Mandelbrot Rollout` GitHub Actions workflow:
+Use `Mandelbrot Rollout` after a new image tag has reached the GitOps overlays
+and Argo CD has synced the application. It does not build or push images.
 
-1. Merge a pod-template change to `main`.
+The normal rollout operation path is:
+
+1. Confirm the generated `Deploy Mandelbrot sha-<commit-sha>` PR merged.
 2. Run `operation=sync`, `cloud=all`.
-3. Inspect the paused canary.
+3. Inspect the paused canary, if the rollout pauses.
 4. Run `operation=promote`, `cloud=all`.
 
 Local status check requires the Argo Rollouts kubectl plugin:
@@ -221,6 +310,9 @@ KUBECONFIG=./kubeconfig.aws.yaml kubectl argo rollouts undo mandelbrot -n mandel
 
 For a durable rollback, revert the bad Git commit and sync again. Argo CD
 self-heal will keep reconciling whatever is declared in Git.
+
+If the bad change was an image release, revert the generated overlay tag commit
+or merge a follow-up generated deploy PR for a known-good app commit.
 
 ## Secrets Synchronization
 
@@ -376,6 +468,38 @@ KUBECONFIG=./kubeconfig.aws.yaml kubectl -n argocd describe application trinity-
 
 Check the repo URL, target revision, path, sync errors, and missing CRDs.
 
+If only the Mandelbrot app is out of sync after a release PR merged, check that
+the overlay tag in `apps/mandelbrot/overlays/<cloud>/kustomization.yaml`
+matches the intended registry image.
+
+### Generated Mandelbrot deploy PR does not merge
+
+Check the `Mandelbrot Deploy` workflow logs and the generated PR checks. Common
+causes:
+
+- required checks are still pending or failed
+- repository auto-merge is disabled
+- branch protection requires a review
+- the workflow lacks `contents: write` or `pull-requests: write`
+
+The generated branch is workflow-owned. It is safe for the workflow to replace
+`mandelbrot/deploy-<commit-sha>` if the same deployment is rerun.
+
+### Mandelbrot pods cannot pull images
+
+Check the pod events:
+
+```sh
+KUBECONFIG=./kubeconfig.aws.yaml kubectl -n mandelbrot describe pod <pod-name>
+```
+
+Cloud-specific checks:
+
+- AWS: nodes need read access to the ECR repository.
+- GCP: the node service account needs Artifact Registry reader access.
+- Azure: the AKS kubelet identity needs `AcrPull` on the ACR, and ACR admin
+  user should remain disabled.
+
 ### Mandelbrot renders locally instead of across clouds
 
 Check `mandelbrot-stage-urls` in each cluster and rerun the traffic stack if
@@ -463,3 +587,13 @@ npm run destroy:bootstrap
 After teardown, confirm expensive resources are gone in each cloud console,
 especially managed Kubernetes clusters, load balancers, public IPs, and NAT or
 forwarding resources.
+
+Destroying the cluster stacks also deletes the managed container registries
+created by Pulumi:
+
+- AWS ECR repository
+- GCP Artifact Registry repository
+- Azure ACR registry
+
+That removes the images stored in those registries. If a registry was created
+outside Pulumi or the destroy failed part-way through, delete it manually.
